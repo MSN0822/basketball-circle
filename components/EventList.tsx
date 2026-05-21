@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase, Event, Participant } from '@/lib/supabase'
+import { Event, Participant } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase-browser'
+
+const supabase = getSupabase()
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 

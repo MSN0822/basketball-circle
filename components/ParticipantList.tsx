@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase, Participant, Event, Member } from '@/lib/supabase'
+import { Participant, Event, Member } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase-browser'
+
+const supabase = getSupabase()
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 

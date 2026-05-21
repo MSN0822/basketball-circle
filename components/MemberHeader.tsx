@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase, Member } from '@/lib/supabase'
+import { Member } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase-browser'
+
+const supabase = getSupabase()
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 

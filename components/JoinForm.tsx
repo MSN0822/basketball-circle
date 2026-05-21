@@ -1,7 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase, Event, Member } from '@/lib/supabase'
+import { Event, Member } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase-browser'
+
+const supabase = getSupabase()
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
