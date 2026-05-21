@@ -25,8 +25,13 @@ function DateTimePicker({ value, onChange }: { value: string; onChange: (v: stri
 
   const selectClass = "h-8 rounded-lg border border-input bg-transparent px-2 py-1 text-sm outline-none focus:border-ring"
 
+  function handleClear() {
+    setDate(''); setHour(''); setMinute('')
+    onChange('')
+  }
+
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 items-center">
       <input
         type="date"
         value={date}
@@ -41,6 +46,9 @@ function DateTimePicker({ value, onChange }: { value: string; onChange: (v: stri
         <option value="">分</option>
         {MINUTES.map(m => <option key={m} value={m}>{m}</option>)}
       </select>
+      {(date || hour || minute) && (
+        <button type="button" onClick={handleClear} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+      )}
     </div>
   )
 }
