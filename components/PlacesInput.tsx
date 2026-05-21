@@ -71,7 +71,7 @@ export default function PlacesInput({ value, onChange, onSelect }: Props) {
   function handleSelect(pred: Prediction) {
     // main_text = 施設名のみ（secondary_text = 住所）
     const name = pred.structured_formatting.main_text
-    const url = `https://www.google.com/maps/place/?q=place_id:${pred.place_id}`
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&query_place_id=${pred.place_id}`
     onSelect(name, url)
     setSuggestions([])
     setOpen(false)
