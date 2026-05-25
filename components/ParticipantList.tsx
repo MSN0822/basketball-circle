@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Participant, Event, Member } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
 
 const supabase = getSupabase()
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 
 interface Props {
   event: Event
@@ -16,7 +15,6 @@ interface Props {
 export default function ParticipantList({ event, initialParticipants }: Props) {
   const [participants, setParticipants] = useState<Participant[]>(initialParticipants)
   const [member, setMember] = useState<Member | null>(null)
-  const [cancelling, setCancelling] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -32,45 +30,39 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
     load()
   }, [])
 
+  const reloadParticipants = useCallback(async () => {
+    const { data } = await supabase
+      .from('participants')
+      .select('*')
+      .eq('event_id', event.id)
+      .neq('status', 'cancelled')
+      .order('slot_number', { ascending: true })
+
+    if (data) setParticipants(data)
+  }, [event.id])
+
   useEffect(() => {
     const channel = supabase
       .channel(`participants:${event.id}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'participants', filter: `event_id=eq.${event.id}` },
-        () => {
-          supabase
-            .from('participants')
-            .select('*')
-            .eq('event_id', event.id)
-            .neq('status', 'cancelled')
-            .order('slot_number', { ascending: true })
-            .then(({ data }) => {
-              if (data) setParticipants(data)
-            })
-        }
+        () => { reloadParticipants() }
       )
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [event.id])
+  }, [event.id, reloadParticipants])
 
-  async function handleCancel(p: Participant) {
-    if (!member) return
-    setCancelling(p.id)
-
-    const res = await fetch('/api/cancel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ participant_id: p.id, member_id: member.id }),
-    })
-
-    setCancelling(null)
-    if (!res.ok) {
-      const data = await res.json()
-      alert(data.error ?? 'キャンセルに失敗しました')
+  useEffect(() => {
+    function handleParticipantsChanged(browserEvent: globalThis.Event) {
+      const detail = (browserEvent as CustomEvent<{ eventId?: string }>).detail
+      if (!detail?.eventId || detail.eventId === event.id) reloadParticipants()
     }
-  }
+
+    window.addEventListener('participants-changed', handleParticipantsChanged)
+    return () => { window.removeEventListener('participants-changed', handleParticipantsChanged) }
+  }, [event.id, reloadParticipants])
 
   const active = participants.filter(p => p.status === 'active')
   const waitlist = participants.filter(p => p.status === 'waitlist')
@@ -83,23 +75,12 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
     <div className="space-y-6">
       {/* 自分の参加状況 */}
       {myParticipation && (
-        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-blue-800">
-              {myParticipation.status === 'active'
-                ? `✅ 参加中（${myParticipation.slot_number}番）`
-                : `⏳ キャンセル待ち（待${myParticipation.slot_number}番）`}
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-destructive border-destructive hover:bg-destructive hover:text-white"
-            disabled={cancelling === myParticipation.id}
-            onClick={() => handleCancel(myParticipation)}
-          >
-            {cancelling === myParticipation.id ? '処理中...' : 'キャンセル'}
-          </Button>
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
+          <p className="text-sm font-medium text-blue-800">
+            {myParticipation.status === 'active'
+              ? `✅ 参加中（${myParticipation.slot_number}番）`
+              : `⏳ キャンセル待ち（待${myParticipation.slot_number}番）`}
+          </p>
         </div>
       )}
 

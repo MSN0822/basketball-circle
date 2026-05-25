@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Event, Member } from '@/lib/supabase'
+import { useCallback, useState, useEffect } from 'react'
+import { Event, Member, Participant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
 
 const supabase = getSupabase()
@@ -14,9 +14,23 @@ interface Props {
 
 export default function JoinForm({ event }: Props) {
   const [member, setMember] = useState<Member | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [action, setAction] = useState<'join' | 'cancel' | null>(null)
   const [error, setError] = useState('')
-  const [done, setDone] = useState<'active' | 'waitlist' | null>(null)
+  const [message, setMessage] = useState('')
+  const [participation, setParticipation] = useState<Participant | null>(null)
+
+  const loadParticipation = useCallback(async (memberId: string) => {
+    const { data } = await supabase
+      .from('participants')
+      .select('*')
+      .eq('event_id', event.id)
+      .eq('member_id', memberId)
+      .neq('status', 'cancelled')
+      .limit(1)
+      .maybeSingle()
+
+    setParticipation((data as Participant | null) ?? null)
+  }, [event.id])
 
   useEffect(() => {
     async function load() {
@@ -27,15 +41,34 @@ export default function JoinForm({ event }: Props) {
         .select('*')
         .eq('auth_user_id', user.id)
         .single()
-      if (data) setMember(data)
+      if (data) {
+        setMember(data)
+        await loadParticipation(data.id)
+      }
     }
     load()
-  }, [])
+  }, [event.id, loadParticipation])
+
+  useEffect(() => {
+    if (!member) return
+
+    const channel = supabase
+      .channel(`join-form:${event.id}:${member.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'participants', filter: `event_id=eq.${event.id}` },
+        () => { loadParticipation(member.id) }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [event.id, loadParticipation, member])
 
   async function handleJoin() {
     if (!member) return
-    setLoading(true)
+    setAction('join')
     setError('')
+    setMessage('')
 
     const res = await fetch('/api/participants', {
       method: 'POST',
@@ -43,15 +76,43 @@ export default function JoinForm({ event }: Props) {
       body: JSON.stringify({ event_id: event.id, name: member.name, member_id: member.id }),
     })
 
-    const data = await res.json()
-    setLoading(false)
+    const data = await res.json() as { error?: string; participant?: Participant; waitlist?: boolean }
+    setAction(null)
 
     if (!res.ok) {
       setError(data.error ?? '申請に失敗しました')
+      await loadParticipation(member.id)
       return
     }
 
-    setDone(data.waitlist ? 'waitlist' : 'active')
+    setParticipation(data.participant ?? null)
+    setMessage(data.waitlist ? 'キャンセル待ちに登録しました！' : '参加登録が完了しました！')
+    window.dispatchEvent(new CustomEvent('participants-changed', { detail: { eventId: event.id } }))
+  }
+
+  async function handleCancel() {
+    if (!member || !participation) return
+    setAction('cancel')
+    setError('')
+    setMessage('')
+
+    const res = await fetch('/api/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ participant_id: participation.id, member_id: member.id }),
+    })
+
+    setAction(null)
+    if (!res.ok) {
+      const data = await res.json() as { error?: string }
+      setError(data.error ?? 'キャンセルに失敗しました')
+      await loadParticipation(member.id)
+      return
+    }
+
+    setParticipation(null)
+    setMessage('キャンセルしました。')
+    window.dispatchEvent(new CustomEvent('participants-changed', { detail: { eventId: event.id } }))
   }
 
   // 未登録
@@ -68,20 +129,6 @@ export default function JoinForm({ event }: Props) {
     )
   }
 
-  // 申請完了
-  if (done) {
-    return (
-      <div className="rounded-lg border border-green-200 bg-green-50 p-4 space-y-1">
-        <p className="font-semibold text-green-800">
-          {done === 'waitlist' ? 'キャンセル待ちに登録しました！' : '参加登録が完了しました！'}
-        </p>
-        <p className="text-sm text-green-700">
-          会員番号 <strong>{member.member_number}</strong>（{member.name}）で登録済みです。
-        </p>
-      </div>
-    )
-  }
-
   // ログイン済み
   return (
     <div className="space-y-3">
@@ -89,19 +136,25 @@ export default function JoinForm({ event }: Props) {
         <span className="text-muted-foreground">会員番号 </span>
         <strong>{member.member_number}</strong>
         <span className="text-muted-foreground ml-2">({member.name})</span>
-        <button
-          onClick={async () => { await supabase.auth.signOut(); setMember(null) }}
-          className="ml-3 text-xs text-muted-foreground hover:text-foreground underline"
-        >
-          ログアウト
-        </button>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {message && <p className="text-sm text-green-700">{message}</p>}
 
-      <Button onClick={handleJoin} disabled={loading} className="w-full">
-        {loading ? '処理中...' : event.status === 'accepting' ? '参加申請する' : 'キャンセル待ちに登録する'}
-      </Button>
+      {participation ? (
+        <Button
+          onClick={handleCancel}
+          disabled={action === 'cancel'}
+          variant="destructive"
+          className="w-full"
+        >
+          {action === 'cancel' ? '処理中...' : 'キャンセル'}
+        </Button>
+      ) : (
+        <Button onClick={handleJoin} disabled={action === 'join'} className="w-full">
+          {action === 'join' ? '処理中...' : event.status === 'accepting' ? '参加申請する' : 'キャンセル待ちに登録する'}
+        </Button>
+      )}
     </div>
   )
 }
