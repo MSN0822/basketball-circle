@@ -64,9 +64,15 @@ export default function LoginPage() {
       return
     }
 
+    const { data: sessionData } = await supabase.auth.getSession()
     const res = await fetch('/api/members', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(sessionData.session?.access_token
+          ? { Authorization: `Bearer ${sessionData.session.access_token}` }
+          : {}),
+      },
       body: JSON.stringify({ name: displayName, auth_user_id: authData.user.id }),
     })
     setLoading(false)

@@ -58,33 +58,26 @@ export default function MemberHeader() {
     setSaving(true)
     setError('')
 
-    const { data, error: memberError } = await supabase
-      .from('members')
-      .update({ name: nextName })
-      .eq('id', member.id)
-      .eq('auth_user_id', user.id)
-      .select('*')
-      .single()
-
-    if (memberError || !data) {
-      setSaving(false)
-      setError('ニックネームの保存に失敗しました')
-      return
-    }
-
-    const { error: participantsError } = await supabase
-      .from('participants')
-      .update({ name: nextName })
-      .eq('member_id', member.id)
-      .in('status', ['active', 'waitlist'])
+    const { data: sessionData } = await supabase.auth.getSession()
+    const res = await fetch('/api/members', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(sessionData.session?.access_token
+          ? { Authorization: `Bearer ${sessionData.session.access_token}` }
+          : {}),
+      },
+      body: JSON.stringify({ member_id: member.id, name: nextName }),
+    })
+    const data = await res.json() as { member?: Member; error?: string }
 
     setSaving(false)
-    if (participantsError) {
-      setError('参加者名の更新に失敗しました')
+    if (!res.ok || !data.member) {
+      setError(data.error ?? 'ニックネームの保存に失敗しました')
       return
     }
 
-    setMember(data)
+    setMember(data.member)
     setEditing(false)
     window.dispatchEvent(new CustomEvent('participants-changed'))
     router.refresh()

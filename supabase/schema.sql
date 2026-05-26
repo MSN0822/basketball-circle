@@ -48,11 +48,11 @@ create policy "events_delete" on events for delete using (true);
 
 create policy "members_select" on members for select using (true);
 create policy "members_insert" on members for insert with check (true);
-create policy "members_update" on members for update using (true);
+create policy "members_update_none" on members for update using (false) with check (false);
 
 create policy "participants_select" on participants for select using (true);
 create policy "participants_insert" on participants for insert with check (true);
-create policy "participants_update" on participants for update using (true);
+create policy "participants_update_none" on participants for update using (false) with check (false);
 
 -- Realtimeパブリケーション
 alter publication supabase_realtime add table participants;
