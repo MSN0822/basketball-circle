@@ -8,7 +8,6 @@ async function getEvents(): Promise<Event[]> {
   const { data } = await supabase
     .from('events')
     .select('*')
-    .neq('status', 'draft')
     .order('event_date', { ascending: true })
   const events = data ?? []
 
@@ -32,7 +31,7 @@ async function getEvents(): Promise<Event[]> {
     events.forEach(e => { if (toClose.includes(e.id)) e.status = 'closed' })
   }
 
-  return events
+  return events.filter(e => e.status !== 'draft')
 }
 
 export default async function HomePage() {

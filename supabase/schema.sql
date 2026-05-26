@@ -1,13 +1,25 @@
 -- イベントテーブル
 create table events (
-  id             uuid primary key default gen_random_uuid(),
-  title          text not null,
-  event_date     timestamptz not null,
-  event_end_date timestamptz,
-  location       text not null,
+  id               uuid primary key default gen_random_uuid(),
+  title            text not null,
+  event_date       timestamptz not null,
+  event_end_date   timestamptz,
+  location         text not null,
+  location_url     text,
+  closes_at        timestamptz,
+  publishes_at     timestamptz,
   max_participants int not null default 40,
-  threshold      int not null default 30,
-  status         text not null default 'accepting' check (status in ('accepting', 'closed')),
+  threshold        int not null default 30,
+  status           text not null default 'accepting' check (status in ('accepting', 'closed', 'draft')),
+  created_at       timestamptz not null default now()
+);
+
+-- 会員テーブル
+create table members (
+  id             uuid primary key default gen_random_uuid(),
+  member_number  text not null unique,
+  name           text not null,
+  auth_user_id   uuid references auth.users(id),
   created_at     timestamptz not null default now()
 );
 
@@ -17,6 +29,7 @@ create table participants (
   event_id    uuid not null references events(id) on delete cascade,
   name        text not null,
   user_code   text not null,
+  member_id   uuid references members(id),
   status      text not null default 'active' check (status in ('active', 'cancelled', 'waitlist')),
   slot_number int,
   created_at  timestamptz not null default now()
@@ -24,23 +37,31 @@ create table participants (
 
 -- RLS有効化
 alter table events enable row level security;
+alter table members enable row level security;
 alter table participants enable row level security;
 
--- 全員がeventsを読める
+-- 現状のアプリ実装に合わせた公開ポリシー
 create policy "events_select" on events for select using (true);
+create policy "events_insert" on events for insert with check (true);
+create policy "events_update" on events for update using (true);
+create policy "events_delete" on events for delete using (true);
 
--- 全員がparticipantsを読める
+create policy "members_select" on members for select using (true);
+create policy "members_insert" on members for insert with check (true);
+create policy "members_update" on members for update using (true);
+
 create policy "participants_select" on participants for select using (true);
-
--- 全員が参加申請できる（INSERT）
 create policy "participants_insert" on participants for insert with check (true);
-
--- キャンセル（UPDATE）は全員可能（user_code照合はアプリ層で実施）
 create policy "participants_update" on participants for update using (true);
 
 -- Realtimeパブリケーション
 alter publication supabase_realtime add table participants;
 
 -- インデックス
+create index on events(event_date);
+create index on events(status);
+create index on members(auth_user_id);
 create index on participants(event_id, status);
 create index on participants(event_id, slot_number);
+create index on participants(member_id);
+create index on participants(user_code);
