@@ -60,6 +60,7 @@ export default function AdminCreatePage() {
 
   const [title, setTitle] = useState('')
   const [eventDate, setEventDate] = useState('')
+  const [eventEndDate, setEventEndDate] = useState('')
   const [location, setLocation] = useState('')
   const [locationUrl, setLocationUrl] = useState('')
   const [closesAt, setClosesAt] = useState('')
@@ -80,8 +81,16 @@ export default function AdminCreatePage() {
   }, [router])
 
   async function handleSave(status: 'draft' | 'accepting') {
-    if (!title || !eventDate || !location) {
-      setError('タイトル・日時・場所は必須です')
+    if (!title || !eventDate || !eventEndDate || !location) {
+      setError('タイトル・開始日時・終了日時・場所は必須です')
+      return
+    }
+
+    const eventStartIso = new Date(eventDate + '+09:00').toISOString()
+    const eventEndIso = new Date(eventEndDate + '+09:00').toISOString()
+
+    if (new Date(eventEndIso).getTime() <= new Date(eventStartIso).getTime()) {
+      setError('終了日時は開始日時より後にしてください')
       return
     }
     setCreating(true)
@@ -92,7 +101,8 @@ export default function AdminCreatePage() {
       headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
       body: JSON.stringify({
         title,
-        event_date: new Date(eventDate + '+09:00').toISOString(),
+        event_date: eventStartIso,
+        event_end_date: eventEndIso,
         location,
         location_url: locationUrl || null,
         closes_at: closesAt ? new Date(closesAt + '+09:00').toISOString() : null,
@@ -134,8 +144,12 @@ export default function AdminCreatePage() {
             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="例: 5/23(土) バスケ" />
           </div>
           <div className="space-y-1.5">
-            <Label>日時</Label>
+            <Label>開始日時</Label>
             <DateTimePicker value={eventDate} onChange={setEventDate} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>終了日時</Label>
+            <DateTimePicker value={eventEndDate} onChange={setEventEndDate} />
           </div>
           <div className="space-y-1.5">
             <Label>場所</Label>

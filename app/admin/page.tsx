@@ -12,6 +12,33 @@ import Link from 'next/link'
 
 const ADMIN_KEY = 'basketball_admin_password'
 
+function formatEventDateRange(startStr: string, endStr: string | null): string {
+  const start = new Date(startStr)
+  const startText = start.toLocaleString('ja-JP', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Tokyo',
+  })
+
+  if (!endStr) return startText
+
+  const end = new Date(endStr)
+  const sameDay = start.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }) === end.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })
+  const endText = end.toLocaleString('ja-JP', {
+    month: sameDay ? undefined : 'long',
+    day: sameDay ? undefined : 'numeric',
+    weekday: sameDay ? undefined : 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Tokyo',
+  })
+
+  return `${startText} - ${endText}`
+}
+
 export default function AdminPage() {
   const [password, setPassword] = useState('')
   const [authed, setAuthed] = useState(false)
@@ -159,10 +186,7 @@ export default function AdminPage() {
               <CardHeader>
                 <CardTitle className="text-base">{event.title}</CardTitle>
                 <CardDescription>
-                  {new Date(event.event_date).toLocaleString('ja-JP', {
-                    month: 'long', day: 'numeric', weekday: 'short',
-                    hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo',
-                  })}
+                  {formatEventDateRange(event.event_date, event.event_end_date)}
                 </CardDescription>
                 {event.location_url ? (
                   <a href={event.location_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
@@ -224,10 +248,7 @@ export default function AdminPage() {
                   </Badge>
                 </div>
                 <CardDescription>
-                  {new Date(event.event_date).toLocaleString('ja-JP', {
-                    month: 'long', day: 'numeric', weekday: 'short',
-                    hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo',
-                  })}
+                  {formatEventDateRange(event.event_date, event.event_end_date)}
                 </CardDescription>
                 {event.location_url ? (
                   <a href={event.location_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">

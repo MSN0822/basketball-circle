@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge'
 
 const supabase = getSupabase()
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('ja-JP', {
+function formatDateRange(startStr: string, endStr: string | null): string {
+  const start = new Date(startStr)
+  const startText = start.toLocaleString('ja-JP', {
     month: 'long',
     day: 'numeric',
     weekday: 'short',
@@ -18,6 +19,21 @@ function formatDate(dateStr: string): string {
     minute: '2-digit',
     timeZone: 'Asia/Tokyo',
   })
+
+  if (!endStr) return startText
+
+  const end = new Date(endStr)
+  const sameDay = start.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }) === end.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })
+  const endText = end.toLocaleString('ja-JP', {
+    month: sameDay ? undefined : 'long',
+    day: sameDay ? undefined : 'numeric',
+    weekday: sameDay ? undefined : 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Tokyo',
+  })
+
+  return `${startText} - ${endText}`
 }
 
 export default function EventList({ events }: { events: Event[] }) {
@@ -70,7 +86,7 @@ export default function EventList({ events }: { events: Event[] }) {
                     </Badge>
                   )}
                 </div>
-                <CardDescription>{formatDate(event.event_date)}</CardDescription>
+                <CardDescription>{formatDateRange(event.event_date, event.event_end_date)}</CardDescription>
                 <p className="text-sm text-muted-foreground">📍 {event.location}</p>
               </CardHeader>
             </Card>

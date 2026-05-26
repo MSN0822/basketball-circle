@@ -69,6 +69,7 @@ export default function AdminEditPage() {
 
   const [title, setTitle] = useState('')
   const [eventDate, setEventDate] = useState('')
+  const [eventEndDate, setEventEndDate] = useState('')
   const [location, setLocation] = useState('')
   const [locationUrl, setLocationUrl] = useState('')
   const [closesAt, setClosesAt] = useState('')
@@ -90,6 +91,7 @@ export default function AdminEditPage() {
       if (!data) { router.replace('/admin'); return }
       setTitle(data.title)
       setEventDate(toLocalDatetime(data.event_date))
+      setEventEndDate(toLocalDatetime(data.event_end_date ?? null))
       setLocation(data.location)
       setLocationUrl(data.location_url ?? '')
       setClosesAt(toLocalDatetime(data.closes_at))
@@ -101,8 +103,16 @@ export default function AdminEditPage() {
   }, [id, router])
 
   async function handleSave() {
-    if (!title || !eventDate || !location) {
-      setError('タイトル・日時・場所は必須です')
+    if (!title || !eventDate || !eventEndDate || !location) {
+      setError('タイトル・開始日時・終了日時・場所は必須です')
+      return
+    }
+
+    const eventStartIso = new Date(eventDate + '+09:00').toISOString()
+    const eventEndIso = new Date(eventEndDate + '+09:00').toISOString()
+
+    if (new Date(eventEndIso).getTime() <= new Date(eventStartIso).getTime()) {
+      setError('終了日時は開始日時より後にしてください')
       return
     }
     setSaving(true)
@@ -114,7 +124,8 @@ export default function AdminEditPage() {
       body: JSON.stringify({
         id,
         title,
-        event_date: new Date(eventDate + '+09:00').toISOString(),
+        event_date: eventStartIso,
+        event_end_date: eventEndIso,
         location,
         location_url: locationUrl || null,
         closes_at: closesAt ? new Date(closesAt + '+09:00').toISOString() : null,
@@ -155,8 +166,12 @@ export default function AdminEditPage() {
             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="例: 5/23(土) バスケ" />
           </div>
           <div className="space-y-1.5">
-            <Label>日時</Label>
+            <Label>開始日時</Label>
             <DateTimePicker value={eventDate} onChange={setEventDate} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>終了日時</Label>
+            <DateTimePicker value={eventEndDate} onChange={setEventEndDate} />
           </div>
           <div className="space-y-1.5">
             <Label>場所</Label>

@@ -7,6 +7,7 @@ export interface Event {
   id: string
   title: string
   event_date: string
+  event_end_date: string | null
   location: string
   location_url: string | null
   closes_at: string | null

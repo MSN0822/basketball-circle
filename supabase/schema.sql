@@ -3,6 +3,7 @@ create table events (
   id             uuid primary key default gen_random_uuid(),
   title          text not null,
   event_date     timestamptz not null,
+  event_end_date timestamptz,
   location       text not null,
   max_participants int not null default 40,
   threshold      int not null default 30,
