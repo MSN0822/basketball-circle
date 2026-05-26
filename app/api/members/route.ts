@@ -73,6 +73,9 @@ export async function POST(req: NextRequest) {
     if (shouldFallbackToLegacyRegister(error)) {
       return legacyRegister(trimmedName, auth_user_id)
     }
+    if (error.code === '23503') {
+      return NextResponse.json({ error: 'auth_user_id が正しくありません' }, { status: 400 })
+    }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 

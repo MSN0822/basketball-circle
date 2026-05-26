@@ -69,6 +69,38 @@ async function normalizeSlots(eventId: string, shouldPromote: boolean) {
   ])
 }
 
+async function syncEventStatusAfterActiveCancel(eventId: string) {
+  const [{ data: event }, { count: activeCount }] = await Promise.all([
+    supabase
+      .from('events')
+      .select('status, threshold, max_participants')
+      .eq('id', eventId)
+      .single<Event>(),
+    supabase
+      .from('participants')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('status', 'active'),
+  ])
+
+  if (!event || event.status === 'draft') return
+
+  const active = activeCount ?? 0
+  const nextStatus =
+    active >= event.max_participants
+      ? 'closed'
+      : active < event.threshold
+        ? 'accepting'
+        : event.status
+
+  if (nextStatus !== event.status) {
+    await supabase
+      .from('events')
+      .update({ status: nextStatus })
+      .eq('id', eventId)
+  }
+}
+
 export async function POST(req: NextRequest) {
   const { participant_id, member_id, user_code, admin } = await req.json()
 
@@ -114,31 +146,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: cancelError.message }, { status: 500 })
   }
 
-  // active キャンセル後、参加者数が閾値を下回ったら自動再開
-  if (wasActive) {
-    const [{ count: remainingActive }, { data: event }] = await Promise.all([
-      supabase
-        .from('participants')
-        .select('*', { count: 'exact', head: true })
-        .eq('event_id', participant.event_id)
-        .eq('status', 'active'),
-      supabase
-        .from('events')
-        .select('status, threshold')
-        .eq('id', participant.event_id)
-        .single<Event>(),
-    ])
-
-    if (event?.status === 'closed' && (remainingActive ?? 0) < event.threshold) {
-      await supabase
-        .from('events')
-        .update({ status: 'accepting' })
-        .eq('id', participant.event_id)
-    }
-  }
-
   try {
     await normalizeSlots(participant.event_id, wasActive)
+    if (wasActive) {
+      await syncEventStatusAfterActiveCancel(participant.event_id)
+    }
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '参加番号の更新に失敗しました' },

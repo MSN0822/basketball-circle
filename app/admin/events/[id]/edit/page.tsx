@@ -85,7 +85,9 @@ export default function AdminEditPage() {
       router.replace('/admin')
       return
     }
-    setPassword(saved)
+    queueMicrotask(() => {
+      setPassword(saved)
+    })
 
     supabase.from('events').select('*').eq('id', id).single().then(({ data }) => {
       if (!data) { router.replace('/admin'); return }

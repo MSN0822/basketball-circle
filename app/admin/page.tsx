@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase, Event, Participant } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -47,15 +47,15 @@ export default function AdminPage() {
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
   const [participantsMap, setParticipantsMap] = useState<Record<string, Participant[]>>({})
 
-  useEffect(() => {
-    const saved = localStorage.getItem(ADMIN_KEY)
-    if (saved) {
-      setPassword(saved)
-      verifyAndLoad(saved)
-    }
+  const loadEvents = useCallback(async () => {
+    const { data } = await supabase
+      .from('events')
+      .select('*')
+      .order('event_date', { ascending: true })
+    if (data) setEvents(data)
   }, [])
 
-  async function verifyAndLoad(pwd: string) {
+  const verifyAndLoad = useCallback(async (pwd: string) => {
     const res = await fetch('/api/admin/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -65,15 +65,17 @@ export default function AdminPage() {
       setAuthed(true)
       loadEvents()
     }
-  }
+  }, [loadEvents])
 
-  async function loadEvents() {
-    const { data } = await supabase
-      .from('events')
-      .select('*')
-      .order('event_date', { ascending: true })
-    if (data) setEvents(data)
-  }
+  useEffect(() => {
+    const saved = localStorage.getItem(ADMIN_KEY)
+    if (saved) {
+      queueMicrotask(() => {
+        setPassword(saved)
+        verifyAndLoad(saved)
+      })
+    }
+  }, [verifyAndLoad])
 
   function handleLogout() {
     localStorage.removeItem(ADMIN_KEY)

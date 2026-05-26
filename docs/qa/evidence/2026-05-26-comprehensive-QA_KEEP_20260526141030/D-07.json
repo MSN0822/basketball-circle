@@ -1,0 +1,12 @@
+{
+  "id": "D-07",
+  "name": "Inviter can cancel own friend after self-cancel",
+  "status": "PASS",
+  "startedAt": "2026-05-26T14:10:49.926Z",
+  "finishedAt": "2026-05-26T14:10:51.826Z",
+  "detail": {
+    "cancelStatus": 200,
+    "cancelledGuestId": "713c66b5-3ec3-4603-b9eb-389efe82ed43",
+    "passed": true
+  }
+}

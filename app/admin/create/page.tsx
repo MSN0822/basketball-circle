@@ -76,8 +76,10 @@ export default function AdminCreatePage() {
       router.replace('/admin')
       return
     }
-    setPassword(saved)
-    setReady(true)
+    queueMicrotask(() => {
+      setPassword(saved)
+      setReady(true)
+    })
   }, [router])
 
   async function handleSave(status: 'draft' | 'accepting') {

@@ -1,0 +1,15 @@
+{
+  "id": "A-09",
+  "name": "Member POST without Authorization is rejected or flagged",
+  "status": "FAIL",
+  "startedAt": "2026-05-26T14:10:37.089Z",
+  "finishedAt": "2026-05-26T14:10:37.620Z",
+  "detail": {
+    "status": 500,
+    "body": {
+      "error": "insert or update on table \"members\" violates foreign key constraint \"members_auth_user_id_fkey\""
+    },
+    "expected": "401 or 403",
+    "passed": false
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "F-06",
+  "name": "Admin updates event title and capacity fields",
+  "status": "PASS",
+  "startedAt": "2026-05-26T14:10:33.095Z",
+  "finishedAt": "2026-05-26T14:10:34.053Z",
+  "detail": {
+    "status": 200,
+    "title": "QA_KEEP_20260526141030_MAIN_PATCHED",
+    "max_participants": 7,
+    "threshold": 5,
+    "passed": true
+  }
+}
