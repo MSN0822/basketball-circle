@@ -12,6 +12,11 @@ interface Props {
   initialParticipants: Participant[]
 }
 
+function getTemporaryGuestCode(participant: Participant) {
+  if (!participant.user_code.startsWith('guest:')) return null
+  return participant.user_code.split(':').at(-1) ?? null
+}
+
 export default function ParticipantList({ event, initialParticipants }: Props) {
   const [participants, setParticipants] = useState<Participant[]>(initialParticipants)
   const [member, setMember] = useState<Member | null>(null)
@@ -106,6 +111,11 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
                 {member && p.member_id === member.id && (
                   <span className="ml-2 text-xs text-blue-600">（自分）</span>
                 )}
+                {getTemporaryGuestCode(p) && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    臨時ID: {getTemporaryGuestCode(p)}
+                  </span>
+                )}
               </span>
             </div>
           ))}
@@ -135,6 +145,11 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
                   {p.name}
                   {member && p.member_id === member.id && (
                     <span className="ml-2 text-xs text-blue-600">（自分）</span>
+                  )}
+                  {getTemporaryGuestCode(p) && (
+                    <span className="ml-2 text-xs">
+                      臨時ID: {getTemporaryGuestCode(p)}
+                    </span>
                   )}
                 </span>
               </div>

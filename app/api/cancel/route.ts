@@ -98,7 +98,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '管理者パスワードが一致しません' }, { status: 403 })
     }
   } else if (member_id) {
-    if (participant.member_id !== member_id) {
+    const ownsGuest = participant.user_code.startsWith(`guest:${member_id}:`)
+    if (participant.member_id !== member_id && !ownsGuest) {
       return NextResponse.json({ error: '本人確認に失敗しました' }, { status: 403 })
     }
   } else if (!user_code || participant.user_code !== user_code) {

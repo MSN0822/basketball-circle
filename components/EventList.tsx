@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Event, Participant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 
 const supabase = getSupabase()
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleString('ja-JP', {
@@ -71,19 +71,7 @@ export default function EventList({ events }: { events: Event[] }) {
                   )}
                 </div>
                 <CardDescription>{formatDate(event.event_date)}</CardDescription>
-                {event.location_url ? (
-                  <a
-                    href={event.location_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    📍 {event.location}
-                  </a>
-                ) : (
-                  <p className="text-sm text-muted-foreground">📍 {event.location}</p>
-                )}
+                <p className="text-sm text-muted-foreground">📍 {event.location}</p>
               </CardHeader>
             </Card>
           </div>
