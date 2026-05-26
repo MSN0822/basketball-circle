@@ -117,6 +117,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: cancelError.message }, { status: 500 })
   }
 
+  // active キャンセル後、参加者数が閾値を下回ったら自動再開
+  if (wasActive) {
+    const [{ count: remainingActive }, { data: event }] = await Promise.all([
+      supabase
+        .from('participants')
+        .select('*', { count: 'exact', head: true })
+        .eq('event_id', participant.event_id)
+        .eq('status', 'active'),
+      supabase
+        .from('events')
+        .select('status, threshold')
+        .eq('id', participant.event_id)
+        .single<Event>(),
+    ])
+
+    if (event?.status === 'closed' && (remainingActive ?? 0) < event.threshold) {
+      await supabase
+        .from('events')
+        .update({ status: 'accepting' })
+        .eq('id', participant.event_id)
+    }
+  }
+
   try {
     await normalizeSlots(participant.event_id, wasActive)
   } catch (error) {

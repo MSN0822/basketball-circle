@@ -86,6 +86,12 @@ export async function POST(req: NextRequest) {
       .single<Participant>()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // 定員に達したら自動締め切り
+    if (slot_number >= event.max_participants) {
+      await supabase.from('events').update({ status: 'closed' }).eq('id', event_id)
+    }
+
     return NextResponse.json({ participant: data, temporary_code: temporaryCode })
   }
 
