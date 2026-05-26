@@ -120,9 +120,25 @@ test.describe('production UI smoke', () => {
     await screenshot(page, '05-admin-edit-start-end.png')
   })
 
+  test('admin create page shows start/end controls and required validation', async ({ page }) => {
+    await page.goto('/login')
+    await page.evaluate(password => {
+      localStorage.setItem('basketball_admin_password', password)
+    }, adminPassword)
+    await page.goto('/admin/create')
+
+    await expect(page.locator('input[type="date"]').first()).toBeVisible()
+    await expect(page.locator('input[type="date"]').nth(1)).toBeVisible()
+    await expect(page.locator('select').nth(0)).toBeVisible()
+    await expect(page.locator('select').nth(2)).toBeVisible()
+    await page.locator('button').last().click()
+    await expect(page.locator('.text-destructive')).toBeVisible()
+    await screenshot(page, '06-admin-create-validation.png')
+  })
+
   test('event list location is not a link but detail location remains a link when authenticated is unavailable', async ({ page }) => {
     await page.goto('/login')
-    await screenshot(page, '06-auth-required-note.png')
+    await screenshot(page, '07-auth-required-note.png')
 
     const detailHtml = await fetch(`${baseURL}/events/${eventId}`, { redirect: 'manual' })
     expect([307, 308]).toContain(detailHtml.status)
