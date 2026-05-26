@@ -1,0 +1,14 @@
+{
+  "id": "F-02",
+  "name": "Admin verification accepts configured password",
+  "status": "PASS",
+  "startedAt": "2026-05-26T14:22:16.365Z",
+  "finishedAt": "2026-05-26T14:22:16.650Z",
+  "detail": {
+    "status": 200,
+    "body": {
+      "ok": true
+    },
+    "passed": true
+  }
+}

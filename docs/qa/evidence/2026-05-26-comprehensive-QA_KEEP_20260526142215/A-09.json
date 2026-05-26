@@ -1,0 +1,15 @@
+{
+  "id": "A-09",
+  "name": "Member POST without Authorization is rejected or flagged",
+  "status": "PASS",
+  "startedAt": "2026-05-26T14:22:21.850Z",
+  "finishedAt": "2026-05-26T14:22:22.376Z",
+  "detail": {
+    "status": 400,
+    "body": {
+      "error": "auth_user_id が正しくありません"
+    },
+    "expected": "400, 401, or 403",
+    "passed": true
+  }
+}

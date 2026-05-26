@@ -1,0 +1,13 @@
+{
+  "id": "F-05",
+  "name": "Admin creates accepting event with start/end time",
+  "status": "PASS",
+  "startedAt": "2026-05-26T14:22:17.512Z",
+  "finishedAt": "2026-05-26T14:22:18.162Z",
+  "detail": {
+    "eventId": "a4aebef8-f0a3-48d9-b817-730b07a36f2d",
+    "title": "QA_KEEP_20260526142215_MAIN",
+    "event_end_date": "2026-06-02T16:22:17.513+00:00",
+    "passed": true
+  }
+}

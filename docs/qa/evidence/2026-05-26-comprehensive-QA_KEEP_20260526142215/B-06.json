@@ -1,0 +1,13 @@
+{
+  "id": "B-06",
+  "name": "Created event stores and exposes end date",
+  "status": "PASS",
+  "startedAt": "2026-05-26T14:22:43.036Z",
+  "finishedAt": "2026-05-26T14:22:43.075Z",
+  "detail": {
+    "eventId": "a4aebef8-f0a3-48d9-b817-730b07a36f2d",
+    "event_date": "2026-06-02T14:22:17.513+00:00",
+    "event_end_date": "2026-06-02T16:22:17.513+00:00",
+    "passed": true
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "C-01",
+  "name": "Member joins accepting event",
+  "status": "PASS",
+  "startedAt": "2026-05-26T14:22:22.377Z",
+  "finishedAt": "2026-05-26T14:22:23.066Z",
+  "detail": {
+    "status": 200,
+    "body": {
+      "participant": {
+        "id": "60b0066b-11e8-47a1-9786-30edc9b75e72",
+        "name": "QA_KEEP_20260526142215 山田 太郎",
+        "status": "active",
+        "event_id": "a4aebef8-f0a3-48d9-b817-730b07a36f2d",
+        "member_id": "ad39eb4f-7af1-44ed-ab01-3419984ca82a",
+        "user_code": "55231",
+        "created_at": "2026-05-26T14:22:23.855088+00:00",
+        "slot_number": 1
+      },
+      "waitlist": false,
+      "temporary_code": "55231"
+    },
+    "passed": true
+  }
+}

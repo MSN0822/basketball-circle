@@ -1,0 +1,12 @@
+{
+  "id": "F-07",
+  "name": "Admin creates draft event that remains traceable",
+  "status": "PASS",
+  "startedAt": "2026-05-26T14:22:18.691Z",
+  "finishedAt": "2026-05-26T14:22:19.447Z",
+  "detail": {
+    "eventId": "22641a71-ca24-47d7-8a1a-4c59a1694c4f",
+    "status": "draft",
+    "passed": true
+  }
+}
