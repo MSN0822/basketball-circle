@@ -262,30 +262,34 @@ export default function JoinForm({ event }: Props) {
         </Button>
       )}
 
-      {participation && (
+      {(participation || guests.length > 0) && (
         <div className="space-y-3 rounded-md border bg-background p-3">
           <div>
             <p className="text-sm font-medium">友達を呼ぶ</p>
             <p className="text-xs text-muted-foreground">
-              このイベントだけ有効な臨時IDを3名まで発行できます。
+              {participation
+                ? 'このイベントだけ有効な臨時IDを3名まで発行できます。'
+                : '自分の参加はキャンセル済みです。追加済みの友達のみ管理できます。'}
             </p>
           </div>
 
-          <div className="flex gap-2">
-            <Input
-              value={guestName}
-              onChange={e => setGuestName(e.target.value)}
-              placeholder="友達の名前"
-              disabled={guests.length >= 3 || action === 'guest'}
-            />
-            <Button
-              type="button"
-              onClick={handleAddGuest}
-              disabled={guests.length >= 3 || action === 'guest'}
-            >
-              {action === 'guest' ? '発行中...' : '追加'}
-            </Button>
-          </div>
+          {participation && (
+            <div className="flex gap-2">
+              <Input
+                value={guestName}
+                onChange={e => setGuestName(e.target.value)}
+                placeholder="友達の名前"
+                disabled={guests.length >= 3 || action === 'guest'}
+              />
+              <Button
+                type="button"
+                onClick={handleAddGuest}
+                disabled={guests.length >= 3 || action === 'guest'}
+              >
+                {action === 'guest' ? '発行中...' : '追加'}
+              </Button>
+            </div>
+          )}
 
           {guests.length > 0 && (
             <div className="space-y-2">
