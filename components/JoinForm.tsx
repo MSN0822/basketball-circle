@@ -28,6 +28,11 @@ function getTemporaryCode(participant: Participant) {
   return participant.user_code.split(':').at(-1) ?? participant.user_code
 }
 
+function getFamilyName(memberName: string) {
+  const baseName = memberName.replace(/\([^()]*\)$/, '').trim()
+  return baseName.split(/\s+/)[0] || baseName
+}
+
 export default function JoinForm({ event }: Props) {
   const [member, setMember] = useState<Member | null>(null)
   const [action, setAction] = useState<'join' | 'cancel' | 'guest' | string | null>(null)
@@ -152,8 +157,8 @@ export default function JoinForm({ event }: Props) {
   async function handleAddGuest() {
     if (!member || !participation) return
 
-    const name = guestName.trim()
-    if (!name) {
+    const baseGuestName = guestName.trim()
+    if (!baseGuestName) {
       setError('友達の名前を入力してください')
       return
     }
@@ -169,7 +174,12 @@ export default function JoinForm({ event }: Props) {
     const res = await fetch('/api/participants', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_id: event.id, name, member_id: member.id, guest: true }),
+      body: JSON.stringify({
+        event_id: event.id,
+        name: `${baseGuestName}（${getFamilyName(member.name)}の友達）`,
+        member_id: member.id,
+        guest: true,
+      }),
     })
 
     const data = await res.json() as JoinResponse
