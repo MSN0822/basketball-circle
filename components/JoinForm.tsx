@@ -155,7 +155,7 @@ export default function JoinForm({ event }: Props) {
   }
 
   async function handleAddGuest() {
-    if (!member || !participation) return
+    if (!member) return
 
     const baseGuestName = guestName.trim()
     if (!baseGuestName) {
@@ -262,62 +262,58 @@ export default function JoinForm({ event }: Props) {
         </Button>
       )}
 
-      {(participation || guests.length > 0) && (
-        <div className="space-y-3 rounded-md border bg-background p-3">
-          <div>
-            <p className="text-sm font-medium">友達を呼ぶ</p>
-            <p className="text-xs text-muted-foreground">
-              {participation
-                ? 'このイベントだけ有効な臨時IDを3名まで発行できます。'
-                : '自分の参加はキャンセル済みです。追加済みの友達のみ管理できます。'}
-            </p>
-          </div>
-
-          {participation && (
-            <div className="flex gap-2">
-              <Input
-                value={guestName}
-                onChange={e => setGuestName(e.target.value)}
-                placeholder="友達の名前"
-                disabled={guests.length >= 3 || action === 'guest'}
-              />
-              <Button
-                type="button"
-                onClick={handleAddGuest}
-                disabled={guests.length >= 3 || action === 'guest'}
-              >
-                {action === 'guest' ? '発行中...' : '追加'}
-              </Button>
-            </div>
-          )}
-
-          {guests.length > 0 && (
-            <div className="space-y-2">
-              {guests.map(guest => (
-                <div key={guest.id} className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-2">
-                  <div className="min-w-0 text-sm">
-                    <p className="truncate">{guest.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      臨時ID: {getTemporaryCode(guest)}
-                      {guest.status === 'waitlist' ? ` / 待${guest.slot_number}` : ` / ${guest.slot_number}番`}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleCancelGuest(guest)}
-                    disabled={action === guest.id}
-                  >
-                    {action === guest.id ? '処理中...' : '取消'}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <p className="text-xs text-muted-foreground">{guests.length} / 3 名発行済み</p>
+      <div className="space-y-3 rounded-md border bg-background p-3">
+        <div>
+          <p className="text-sm font-medium">友達を呼ぶ</p>
+          <p className="text-xs text-muted-foreground">
+            {participation
+              ? 'このイベントだけ有効な臨時IDを3名まで発行できます。'
+              : '自分が参加しない場合でも、友達の臨時IDを3名まで発行できます。'}
+          </p>
         </div>
-      )}
+
+        <div className="flex gap-2">
+          <Input
+            value={guestName}
+            onChange={e => setGuestName(e.target.value)}
+            placeholder="友達の名前"
+            disabled={guests.length >= 3 || action === 'guest'}
+          />
+          <Button
+            type="button"
+            onClick={handleAddGuest}
+            disabled={guests.length >= 3 || action === 'guest'}
+          >
+            {action === 'guest' ? '発行中...' : '追加'}
+          </Button>
+        </div>
+
+        {guests.length > 0 && (
+          <div className="space-y-2">
+            {guests.map(guest => (
+              <div key={guest.id} className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-2">
+                <div className="min-w-0 text-sm">
+                  <p className="truncate">{guest.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    臨時ID: {getTemporaryCode(guest)}
+                    {guest.status === 'waitlist' ? ` / 待${guest.slot_number}` : ` / ${guest.slot_number}番`}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCancelGuest(guest)}
+                  disabled={action === guest.id}
+                >
+                  {action === guest.id ? '処理中...' : '取消'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p className="text-xs text-muted-foreground">{guests.length} / 3 名発行済み</p>
+      </div>
     </div>
   )
 }
