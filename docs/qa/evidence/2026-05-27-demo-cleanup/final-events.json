@@ -1,0 +1,35 @@
+{
+  "totalEvents": 3,
+  "events": [
+    {
+      "id": "aceff598-0ecb-4d5f-9a37-150e57c354bd",
+      "title": "【運営確認用】 受付中バスケ体験会",
+      "status": "accepting",
+      "event_date": "2026-06-03T03:34:57.824+00:00",
+      "event_end_date": "2026-06-03T05:34:57.824+00:00",
+      "location": "○○市民体育館 メインコート",
+      "max_participants": 10,
+      "threshold": 8
+    },
+    {
+      "id": "edd6aacf-e0c4-4f11-a952-d28df9e41b22",
+      "title": "【運営確認用】 満員・キャンセル待ち例",
+      "status": "closed",
+      "event_date": "2026-06-10T03:34:57.824+00:00",
+      "event_end_date": "2026-06-10T05:34:57.824+00:00",
+      "location": "△△スポーツセンター",
+      "max_participants": 3,
+      "threshold": 3
+    },
+    {
+      "id": "f767dcbe-5952-420a-999f-f8ddaa6c6157",
+      "title": "【運営確認用】 下書きイベント",
+      "status": "draft",
+      "event_date": "2026-06-17T03:34:57.824+00:00",
+      "event_end_date": "2026-06-17T05:34:57.824+00:00",
+      "location": "□□小学校 体育館",
+      "max_participants": 20,
+      "threshold": 15
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "deletedCount": 5,
+  "deleted": [
+    {
+      "id": "dc4e91f1-fa9b-45cd-b707-223e3bed7f64",
+      "title": "【運営確認用】 下書きイベント",
+      "status": "draft"
+    },
+    {
+      "id": "8350a9f9-bb4c-4283-b2ee-08fa6363cda5",
+      "title": "【運営確認用】 満員・キャンセル待ち例",
+      "status": "closed"
+    },
+    {
+      "id": "a7e7a45c-6ae3-42d8-955b-19952c07ee00",
+      "title": "【運営確認用】 受付中バスケ体験会",
+      "status": "accepting"
+    },
+    {
+      "id": "065bd486-45a2-4f70-85fb-ab6ff9834692",
+      "title": "bbbbb",
+      "status": "accepting"
+    },
+    {
+      "id": "6defef7b-59e2-4ade-8943-4c51487118e6",
+      "title": "aaaaa",
+      "status": "accepting"
+    }
+  ],
+  "created": [
+    {
+      "id": "aceff598-0ecb-4d5f-9a37-150e57c354bd",
+      "title": "【運営確認用】 受付中バスケ体験会",
+      "status": "accepting"
+    },
+    {
+      "id": "edd6aacf-e0c4-4f11-a952-d28df9e41b22",
+      "title": "【運営確認用】 満員・キャンセル待ち例",
+      "status": "closed"
+    },
+    {
+      "id": "f767dcbe-5952-420a-999f-f8ddaa6c6157",
+      "title": "【運営確認用】 下書きイベント",
+      "status": "draft"
+    }
+  ],
+  "remainingDemoOrTestCount": 3,
+  "remainingDemoOrTest": [
+    {
+      "id": "f767dcbe-5952-420a-999f-f8ddaa6c6157",
+      "title": "【運営確認用】 下書きイベント",
+      "status": "draft"
+    },
+    {
+      "id": "edd6aacf-e0c4-4f11-a952-d28df9e41b22",
+      "title": "【運営確認用】 満員・キャンセル待ち例",
+      "status": "closed"
+    },
+    {
+      "id": "aceff598-0ecb-4d5f-9a37-150e57c354bd",
+      "title": "【運営確認用】 受付中バスケ体験会",
+      "status": "accepting"
+    }
+  ]
+}
