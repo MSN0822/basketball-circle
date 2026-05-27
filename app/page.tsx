@@ -1,10 +1,12 @@
-import { supabase, Event } from '@/lib/supabase'
+import { Event } from '@/lib/supabase'
+import { getServerSupabase } from '@/lib/supabase-server'
 import MemberHeader from '@/components/MemberHeader'
 import EventList from '@/components/EventList'
 
 export const revalidate = 30
 
 async function getEvents(): Promise<Event[]> {
+  const supabase = getServerSupabase()
   const { data } = await supabase
     .from('events')
     .select('*')

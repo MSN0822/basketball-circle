@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Event, Participant } from '@/lib/supabase'
+import { getAuthenticatedMember, getBearerToken } from '@/lib/api-auth'
 import { getServerSupabase } from '@/lib/supabase-server'
 
 const supabase = getServerSupabase()
@@ -107,13 +108,20 @@ export async function POST(req: NextRequest) {
     if (user_code !== process.env.ADMIN_PASSWORD) {
       return NextResponse.json({ error: '管理者パスワードが一致しません' }, { status: 403 })
     }
-  } else if (member_id) {
-    const ownsGuest = participant.user_code.startsWith(`guest:${member_id}:`)
-    if (participant.member_id !== member_id && !ownsGuest) {
+  } else if (getBearerToken(req)) {
+    const auth = await getAuthenticatedMember(req, member_id ?? null)
+    if (!auth.member) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
+    const ownsGuest = participant.user_code.startsWith(`guest:${auth.member.id}:`)
+    if (participant.member_id !== auth.member.id && !ownsGuest) {
       return NextResponse.json({ error: '本人確認に失敗しました' }, { status: 403 })
     }
-  } else if (!user_code || participant.user_code !== user_code) {
-    return NextResponse.json({ error: '参加コードが一致しません' }, { status: 403 })
+  } else if (!participant.member_id && !participant.user_code.startsWith('guest:') && user_code === participant.user_code) {
+    // Legacy non-member cancellations are still allowed by temporary code.
+  } else {
+    return NextResponse.json({ error: 'ログインが必要です' }, { status: 401 })
   }
 
   const wasActive = participant.status === 'active'

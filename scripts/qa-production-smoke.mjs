@@ -173,9 +173,12 @@ async function createAuthUserAndMember(label, displayName) {
   return { authUserId, email, password, accessToken, member: member.body.member }
 }
 
-async function join(eventId, name, memberId = null, guest = false) {
+async function join(eventId, name, memberId = null, guest = false, accessToken = null) {
   const res = await appJson('/api/participants', {
     method: 'POST',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
     body: JSON.stringify({ event_id: eventId, name, member_id: memberId, guest }),
   })
   if (res.body?.participant?.id) {
@@ -184,9 +187,12 @@ async function join(eventId, name, memberId = null, guest = false) {
   return res
 }
 
-async function cancel(participantId, memberId = null, userCode = null, admin = false) {
+async function cancel(participantId, memberId = null, userCode = null, admin = false, accessToken = null) {
   return appJson('/api/cancel', {
     method: 'POST',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
     body: JSON.stringify({ participant_id: participantId, member_id: memberId, user_code: userCode, admin }),
   })
 }
@@ -207,6 +213,7 @@ let concurrencyEvent
 let deadlineEvent
 let memberA
 let memberB
+let memberC
 
 await record('H-01', 'Production build check is handled separately by npm run build', async () => ({
   note: 'The script records runtime tests. See the QA report for build command output.',
@@ -287,15 +294,17 @@ await record('F-07', 'Admin creates draft event that remains traceable', async (
   return { eventId: draft.id, status: draft.status, passed: draft.status === 'draft' }
 })
 
-await record('A-04', 'Create two QA auth users and member records', async () => {
+await record('A-04', 'Create QA auth users and member records', async () => {
   memberA = await createAuthUserAndMember('a', `${runId} 山田 太郎`)
   memberB = await createAuthUserAndMember('b', `${runId} 佐藤 花子`)
+  memberC = await createAuthUserAndMember('c', `${runId} 鈴木 一郎`)
   return {
     members: [
       { id: memberA.member.id, name: memberA.member.name, email: memberA.email, hasSession: Boolean(memberA.accessToken) },
       { id: memberB.member.id, name: memberB.member.name, email: memberB.email, hasSession: Boolean(memberB.accessToken) },
+      { id: memberC.member.id, name: memberC.member.name, email: memberC.email, hasSession: Boolean(memberC.accessToken) },
     ],
-    passed: Boolean(memberA.member.id && memberB.member.id),
+    passed: Boolean(memberA.member.id && memberB.member.id && memberC.member.id),
   }
 })
 
@@ -329,18 +338,28 @@ await record('A-09', 'Member POST without Authorization is rejected or flagged',
   }
 })
 
-await record('C-01', 'Member joins accepting event', async () => {
+await record('A-10', 'Participant POST without Authorization is rejected', async () => {
   const res = await join(mainEvent.id, memberA.member.name, memberA.member.id)
+  return { status: res.status, body: res.body, passed: res.status === 401 }
+})
+
+await record('A-11', 'Participant POST cannot spoof another member with a valid token', async () => {
+  const res = await join(mainEvent.id, memberB.member.name, memberB.member.id, false, memberA.accessToken)
+  return { status: res.status, body: res.body, passed: res.status === 403 }
+})
+
+await record('C-01', 'Member joins accepting event', async () => {
+  const res = await join(mainEvent.id, memberA.member.name, memberA.member.id, false, memberA.accessToken)
   return { status: res.status, body: res.body, passed: res.ok && res.body.participant.status === 'active' }
 })
 
 await record('C-02', 'Same member duplicate join is rejected', async () => {
-  const res = await join(mainEvent.id, memberA.member.name, memberA.member.id)
+  const res = await join(mainEvent.id, memberA.member.name, memberA.member.id, false, memberA.accessToken)
   return { status: res.status, body: res.body, passed: res.status === 409 }
 })
 
 await record('D-02', 'Member who is not personally joining can add a friend', async () => {
-  const res = await join(mainEvent.id, `${runId} 友達A(佐藤の友達)`, memberB.member.id, true)
+  const res = await join(mainEvent.id, `${runId} 友達A(佐藤の友達)`, memberB.member.id, true, memberB.accessToken)
   return { status: res.status, body: res.body, passed: res.ok && res.body.participant?.user_code?.startsWith(`guest:${memberB.member.id}:`) }
 })
 
@@ -348,13 +367,13 @@ await record('D-03', 'Member can add up to three friends', async () => {
   const firstGuestCount = (await getParticipants(mainEvent.id)).filter(p => String(p.user_code).startsWith(`guest:${memberB.member.id}:`) && p.status !== 'cancelled').length
   const adds = []
   for (let i = firstGuestCount + 1; i <= 3; i += 1) {
-    adds.push(await join(mainEvent.id, `${runId} 友達${i}(佐藤の友達)`, memberB.member.id, true))
+    adds.push(await join(mainEvent.id, `${runId} 友達${i}(佐藤の友達)`, memberB.member.id, true, memberB.accessToken))
   }
   return { statuses: adds.map(r => r.status), passed: adds.every(r => r.ok) }
 })
 
 await record('D-04', 'Fourth friend is rejected', async () => {
-  const res = await join(mainEvent.id, `${runId} 友達4(佐藤の友達)`, memberB.member.id, true)
+  const res = await join(mainEvent.id, `${runId} 友達4(佐藤の友達)`, memberB.member.id, true, memberB.accessToken)
   return { status: res.status, body: res.body, passed: res.status === 400 }
 })
 
@@ -366,9 +385,9 @@ await record('D-05', 'Friend labels include inviter family name', async () => {
 
 await record('E-01/E-02', 'Capacity closes event and overflow is rejected', async () => {
   capacityEvent = await createEvent('CAPACITY', { max_participants: 2, threshold: 2 })
-  const one = await join(capacityEvent.id, `${runId} 定員A`, null)
-  const two = await join(capacityEvent.id, `${runId} 定員B`, null)
-  const three = await join(capacityEvent.id, `${runId} 待機C`, null)
+  const one = await join(capacityEvent.id, memberA.member.name, memberA.member.id, false, memberA.accessToken)
+  const two = await join(capacityEvent.id, memberB.member.name, memberB.member.id, false, memberB.accessToken)
+  const three = await join(capacityEvent.id, memberC.member.name, memberC.member.id, false, memberC.accessToken)
   const event = await getEvent(capacityEvent.id)
   const participants = await getParticipants(capacityEvent.id)
   return {
@@ -382,10 +401,14 @@ await record('E-01/E-02', 'Capacity closes event and overflow is rejected', asyn
 await record('E-03/E-04', 'Cancel active reopens only when below threshold without waitlist promotion', async () => {
   const participantsBefore = await getParticipants(capacityEvent.id)
   const firstActive = participantsBefore.find(p => p.status === 'active')
-  const res = await cancel(firstActive.id, null, firstActive.user_code)
+  const owner =
+    firstActive.member_id === memberA.member.id ? memberA :
+    firstActive.member_id === memberB.member.id ? memberB :
+    memberC
+  const res = await cancel(firstActive.id, owner.member.id, null, false, owner.accessToken)
   const event = await getEvent(capacityEvent.id)
   const participantsAfter = await getParticipants(capacityEvent.id)
-  const refill = await join(capacityEvent.id, `${runId} 再受付`, null)
+  const refill = await join(capacityEvent.id, memberC.member.name, memberC.member.id, false, memberC.accessToken)
   const eventAfterRefill = await getEvent(capacityEvent.id)
   const participantsAfterRefill = await getParticipants(capacityEvent.id)
   return {
@@ -400,14 +423,14 @@ await record('E-03/E-04', 'Cancel active reopens only when below threshold witho
 })
 
 await record('C-06', 'Member cannot cancel another member participant', async () => {
-  const resJoin = await join(mainEvent.id, memberB.member.name, memberB.member.id)
+  const resJoin = await join(mainEvent.id, memberB.member.name, memberB.member.id, false, memberB.accessToken)
   const participant = resJoin.body?.participant
-  const res = await cancel(participant.id, memberA.member.id)
+  const res = await cancel(participant.id, memberA.member.id, null, false, memberA.accessToken)
   return { joinStatus: resJoin.status, cancelStatus: res.status, body: res.body, passed: resJoin.ok && res.status === 403 }
 })
 
 await record('D-06', 'Friends remain after inviter self-cancel', async () => {
-  const resCancel = await cancel(memberB ? (await getParticipants(mainEvent.id)).find(p => p.member_id === memberB.member.id)?.id : null, memberB.member.id)
+  const resCancel = await cancel(memberB ? (await getParticipants(mainEvent.id)).find(p => p.member_id === memberB.member.id)?.id : null, memberB.member.id, null, false, memberB.accessToken)
   const participants = await getParticipants(mainEvent.id)
   const activeGuests = participants.filter(p => String(p.user_code).startsWith(`guest:${memberB.member.id}:`) && p.status !== 'cancelled')
   return { cancelStatus: resCancel.status, activeGuestCount: activeGuests.length, passed: resCancel.ok && activeGuests.length === 3 }
@@ -416,7 +439,7 @@ await record('D-06', 'Friends remain after inviter self-cancel', async () => {
 await record('D-07', 'Inviter can cancel own friend after self-cancel', async () => {
   const participants = await getParticipants(mainEvent.id)
   const guest = participants.find(p => String(p.user_code).startsWith(`guest:${memberB.member.id}:`) && p.status !== 'cancelled')
-  const res = await cancel(guest.id, memberB.member.id)
+  const res = await cancel(guest.id, memberB.member.id, null, false, memberB.accessToken)
   const after = await getParticipants(mainEvent.id)
   const stillActive = after.some(p => p.id === guest.id && p.status !== 'cancelled')
   return { cancelStatus: res.status, cancelledGuestId: guest.id, passed: res.ok && !stillActive }
@@ -425,13 +448,18 @@ await record('D-07', 'Inviter can cancel own friend after self-cancel', async ()
 await record('D-08', 'Other member cannot cancel a friend they do not own', async () => {
   const participants = await getParticipants(mainEvent.id)
   const guest = participants.find(p => String(p.user_code).startsWith(`guest:${memberB.member.id}:`) && p.status !== 'cancelled')
-  const res = await cancel(guest.id, memberA.member.id)
+  const res = await cancel(guest.id, memberA.member.id, null, false, memberA.accessToken)
   return { cancelStatus: res.status, body: res.body, passed: res.status === 403 }
 })
 
 await record('E-05', 'Concurrent joins into capacity-one event keep exactly one active', async () => {
   concurrencyEvent = await createEvent('CONCURRENCY', { max_participants: 1, threshold: 1 })
-  const requests = Array.from({ length: 5 }, (_, i) => join(concurrencyEvent.id, `${runId} 同時${i + 1}`, null))
+  const concurrentMembers = await Promise.all(
+    Array.from({ length: 5 }, (_, i) => createAuthUserAndMember(`concurrent_${i + 1}`, `${runId} 同時${i + 1}`))
+  )
+  const requests = concurrentMembers.map(member =>
+    join(concurrencyEvent.id, member.member.name, member.member.id, false, member.accessToken)
+  )
   const responses = await Promise.all(requests)
   const event = await getEvent(concurrencyEvent.id)
   const participants = await getParticipants(concurrencyEvent.id)
@@ -445,7 +473,7 @@ await record('E-05', 'Concurrent joins into capacity-one event keep exactly one 
 
 await record('E-06', 'Concurrent duplicate member joins do not create duplicate active rows', async () => {
   const duplicateEvent = await createEvent('DUPLICATE_CONCURRENCY', { max_participants: 5, threshold: 5 })
-  const requests = Array.from({ length: 4 }, () => join(duplicateEvent.id, memberA.member.name, memberA.member.id))
+  const requests = Array.from({ length: 4 }, () => join(duplicateEvent.id, memberA.member.name, memberA.member.id, false, memberA.accessToken))
   const responses = await Promise.all(requests)
   const participants = await getParticipants(duplicateEvent.id)
   const memberRows = participants.filter(p => p.member_id === memberA.member.id && p.status !== 'cancelled')
@@ -463,7 +491,7 @@ await record('E-07', 'Past close datetime closes event and rejects additional jo
     closes_at: new Date(Date.now() - 60 * 1000).toISOString(),
     status: 'accepting',
   })
-  const res = await join(deadlineEvent.id, `${runId} 締切後`, null)
+  const res = await join(deadlineEvent.id, memberC.member.name, memberC.member.id, false, memberC.accessToken)
   const event = await getEvent(deadlineEvent.id)
   const participants = await getParticipants(deadlineEvent.id)
   return {
@@ -476,7 +504,7 @@ await record('E-07', 'Past close datetime closes event and rejects additional jo
 
 await record('E-08', 'Past close datetime prevents reopen after cancellation below threshold', async () => {
   const reopenEvent = await createEvent('DEADLINE_REOPEN', { max_participants: 5, threshold: 5 })
-  const joined = await join(reopenEvent.id, `${runId} 締切前参加`, null)
+  const joined = await join(reopenEvent.id, memberC.member.name, memberC.member.id, false, memberC.accessToken)
   const participant = joined.body?.participant
   await appJson('/api/admin/events', {
     method: 'PATCH',
@@ -487,7 +515,7 @@ await record('E-08', 'Past close datetime prevents reopen after cancellation bel
       closes_at: new Date(Date.now() - 60 * 1000).toISOString(),
     }),
   })
-  const cancelled = await cancel(participant.id, null, participant.user_code)
+  const cancelled = await cancel(participant.id, memberC.member.id, null, false, memberC.accessToken)
   const event = await getEvent(reopenEvent.id)
   const participants = await getParticipants(reopenEvent.id)
   return {
@@ -518,6 +546,56 @@ await record('G-02', 'Anon direct members update is blocked', async () => {
   const selected = await supabaseRest('members', `?id=eq.${memberA.member.id}&select=*`)
   const after = Array.isArray(selected.body) ? selected.body[0] : null
   return { status: res.status, rowsReturned: Array.isArray(res.body) ? res.body.length : null, before, after: after?.name, passed: after?.name === before }
+})
+
+await record('G-03', 'Anon direct participants insert is blocked', async () => {
+  const res = await supabaseRest('participants', '', {
+    method: 'POST',
+    body: JSON.stringify({
+      event_id: mainEvent.id,
+      name: `${runId} ANON_INSERT_SHOULD_NOT_APPLY`,
+      user_code: '00000',
+      status: 'active',
+      slot_number: 99,
+    }),
+  })
+  const participants = await getParticipants(mainEvent.id)
+  const inserted = participants.some(p => p.name === `${runId} ANON_INSERT_SHOULD_NOT_APPLY`)
+  return { status: res.status, body: res.body, inserted, passed: !inserted && !res.ok }
+})
+
+await record('G-04', 'Anon direct members insert is blocked', async () => {
+  const res = await supabaseRest('members', '', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: `${runId} ANON_MEMBER_SHOULD_NOT_APPLY`,
+      member_number: '999',
+    }),
+  })
+  const selected = await supabaseRest('members', `?name=eq.${encodeURIComponent(`${runId} ANON_MEMBER_SHOULD_NOT_APPLY`)}&select=*`)
+  const inserted = Array.isArray(selected.body) && selected.body.length > 0
+  return { status: res.status, body: res.body, inserted, passed: !inserted && !res.ok }
+})
+
+await record('G-05', 'Anon direct events insert is blocked', async () => {
+  const start = new Date(Date.now() + 12 * 24 * 60 * 60 * 1000)
+  const end = new Date(start.getTime() + 2 * 60 * 60 * 1000)
+  const title = `${runId} ANON_EVENT_SHOULD_NOT_APPLY`
+  const res = await supabaseRest('events', '', {
+    method: 'POST',
+    body: JSON.stringify({
+      title,
+      event_date: start.toISOString(),
+      event_end_date: end.toISOString(),
+      location: `${runId} Gym`,
+      max_participants: 35,
+      threshold: 30,
+      status: 'accepting',
+    }),
+  })
+  const selected = await supabaseRest('events', `?title=eq.${encodeURIComponent(title)}&select=*`)
+  const inserted = Array.isArray(selected.body) && selected.body.length > 0
+  return { status: res.status, body: res.body, inserted, passed: !inserted && !res.ok }
 })
 
 await record('B-06', 'Created event stores and exposes end date', async () => {

@@ -42,17 +42,19 @@ alter table participants enable row level security;
 
 -- 現状のアプリ実装に合わせた公開ポリシー
 create policy "events_select" on events for select using (true);
-create policy "events_insert" on events for insert with check (true);
-create policy "events_update" on events for update using (true);
-create policy "events_delete" on events for delete using (true);
+create policy "events_insert_none" on events for insert with check (false);
+create policy "events_update_none" on events for update using (false) with check (false);
+create policy "events_delete_none" on events for delete using (false);
 
 create policy "members_select" on members for select using (true);
-create policy "members_insert" on members for insert with check (true);
+create policy "members_insert_none" on members for insert with check (false);
 create policy "members_update_none" on members for update using (false) with check (false);
+create policy "members_delete_none" on members for delete using (false);
 
 create policy "participants_select" on participants for select using (true);
-create policy "participants_insert" on participants for insert with check (true);
+create policy "participants_insert_none" on participants for insert with check (false);
 create policy "participants_update_none" on participants for update using (false) with check (false);
+create policy "participants_delete_none" on participants for delete using (false);
 
 -- Realtimeパブリケーション
 alter publication supabase_realtime add table participants;

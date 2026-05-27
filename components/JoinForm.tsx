@@ -41,6 +41,16 @@ function getFamilyName(memberName: string) {
   return baseName.split(/\s+/)[0] || baseName
 }
 
+async function getJsonAuthHeaders() {
+  const { data } = await supabase.auth.getSession()
+  return {
+    'Content-Type': 'application/json',
+    ...(data.session?.access_token
+      ? { Authorization: `Bearer ${data.session.access_token}` }
+      : {}),
+  }
+}
+
 export default function JoinForm({ event }: Props) {
   const [member, setMember] = useState<Member | null>(null)
   const [action, setAction] = useState<'join' | 'cancel' | 'guest' | string | null>(null)
@@ -120,7 +130,7 @@ export default function JoinForm({ event }: Props) {
 
     const res = await fetch('/api/participants', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getJsonAuthHeaders(),
       body: JSON.stringify({ event_id: event.id, name: member.name, member_id: member.id }),
     })
 
@@ -146,7 +156,7 @@ export default function JoinForm({ event }: Props) {
 
     const res = await fetch('/api/cancel', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getJsonAuthHeaders(),
       body: JSON.stringify({ participant_id: participation.id, member_id: member.id }),
     })
 
@@ -183,7 +193,7 @@ export default function JoinForm({ event }: Props) {
 
     const res = await fetch('/api/participants', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getJsonAuthHeaders(),
       body: JSON.stringify({
         event_id: event.id,
         name: `${baseGuestName}（${getFamilyName(member.name)}の友達）`,
@@ -216,7 +226,7 @@ export default function JoinForm({ event }: Props) {
 
     const res = await fetch('/api/cancel', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getJsonAuthHeaders(),
       body: JSON.stringify({ participant_id: guest.id, member_id: member.id }),
     })
 
