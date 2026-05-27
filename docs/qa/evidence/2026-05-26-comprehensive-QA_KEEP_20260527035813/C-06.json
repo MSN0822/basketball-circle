@@ -1,0 +1,15 @@
+{
+  "id": "C-06",
+  "name": "Member cannot cancel another member participant",
+  "status": "PASS",
+  "startedAt": "2026-05-27T03:58:31.999Z",
+  "finishedAt": "2026-05-27T03:58:32.956Z",
+  "detail": {
+    "joinStatus": 200,
+    "cancelStatus": 403,
+    "body": {
+      "error": "本人確認に失敗しました"
+    },
+    "passed": true
+  }
+}

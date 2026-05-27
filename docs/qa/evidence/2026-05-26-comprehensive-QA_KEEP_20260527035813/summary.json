@@ -1,0 +1,311 @@
+{
+  "runId": "QA_KEEP_20260527035813",
+  "baseUrl": "https://basketball-circle.vercel.app",
+  "finishedAt": "2026-05-27T03:58:44.139Z",
+  "counts": {
+    "total": 31,
+    "passed": 31,
+    "failed": 0
+  },
+  "created": {
+    "runId": "QA_KEEP_20260527035813",
+    "baseUrl": "https://basketball-circle.vercel.app",
+    "evidenceDir": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813",
+    "events": [
+      {
+        "id": "6719bb15-3a19-44c3-bd46-f218c30d81c8",
+        "title": "QA_KEEP_20260527035813_MAIN"
+      },
+      {
+        "id": "d2567398-2e31-4840-9a0b-8e4176deae71",
+        "title": "QA_KEEP_20260527035813_DRAFT"
+      },
+      {
+        "id": "a8def117-0a6a-4183-aece-1ff91914b3d8",
+        "title": "QA_KEEP_20260527035813_CAPACITY"
+      },
+      {
+        "id": "eae9fb29-3b41-4855-81c6-4ddcff985262",
+        "title": "QA_KEEP_20260527035813_CONCURRENCY"
+      },
+      {
+        "id": "0fff443d-a961-4450-b058-475f5700654c",
+        "title": "QA_KEEP_20260527035813_DUPLICATE_CONCURRENCY"
+      }
+    ],
+    "members": [
+      {
+        "id": "fe2f57e8-16e3-4793-9661-35cf37807afd",
+        "name": "QA_KEEP_20260527035813 山田 太郎",
+        "authUserId": "ea75a0d9-22a1-4c3b-9afe-6a5469660d96",
+        "email": "qa_keep_qa_keep_20260527035813_a@example.com",
+        "accessToken": false
+      },
+      {
+        "id": "bdf35d10-af74-48b8-a946-5e4832de545c",
+        "name": "QA_KEEP_20260527035813 佐藤 花子",
+        "authUserId": "5e246db9-49aa-49c8-b36d-bbe029915c03",
+        "email": "qa_keep_qa_keep_20260527035813_b@example.com",
+        "accessToken": false
+      }
+    ],
+    "authUsers": [
+      {
+        "id": "ea75a0d9-22a1-4c3b-9afe-6a5469660d96",
+        "email": "qa_keep_qa_keep_20260527035813_a@example.com"
+      },
+      {
+        "id": "5e246db9-49aa-49c8-b36d-bbe029915c03",
+        "email": "qa_keep_qa_keep_20260527035813_b@example.com"
+      }
+    ],
+    "participants": [
+      {
+        "id": "934ad5b8-ae85-4ce4-80f4-b3a988b0335d",
+        "name": "QA_KEEP_20260527035813 山田 太郎",
+        "status": "active"
+      },
+      {
+        "id": "5b12e9bb-c00e-4a4f-87d7-74b75d529dec",
+        "name": "QA_KEEP_20260527035813 友達A(佐藤の友達)",
+        "status": "active"
+      },
+      {
+        "id": "9a51640e-677b-4d3b-839f-8aa6dd49d340",
+        "name": "QA_KEEP_20260527035813 友達2(佐藤の友達)",
+        "status": "active"
+      },
+      {
+        "id": "8bab5c14-dfe1-4b8b-a8fd-f0037df13047",
+        "name": "QA_KEEP_20260527035813 友達3(佐藤の友達)",
+        "status": "active"
+      },
+      {
+        "id": "910a26c4-c2dd-49a4-a0eb-8d9eb4557b39",
+        "name": "QA_KEEP_20260527035813 定員A",
+        "status": "active"
+      },
+      {
+        "id": "360f00c7-00cd-4208-872f-479445d57040",
+        "name": "QA_KEEP_20260527035813 定員B",
+        "status": "active"
+      },
+      {
+        "id": "7fbc475a-ddc0-4a05-b11f-2c4327c52771",
+        "name": "QA_KEEP_20260527035813 再受付",
+        "status": "active"
+      },
+      {
+        "id": "6ebe9e0d-b5a3-4c1b-9111-bfab779a1f90",
+        "name": "QA_KEEP_20260527035813 佐藤 花子",
+        "status": "active"
+      },
+      {
+        "id": "66131cc7-25ef-416a-b2c7-88058e596668",
+        "name": "QA_KEEP_20260527035813 同時1",
+        "status": "active"
+      },
+      {
+        "id": "3f54d811-8dbe-4867-8c74-f22fda7e85a1",
+        "name": "QA_KEEP_20260527035813 山田 太郎",
+        "status": "active"
+      }
+    ]
+  },
+  "results": [
+    {
+      "id": "H-01",
+      "name": "Production build check is handled separately by npm run build",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\H-01.json"
+    },
+    {
+      "id": "A-01",
+      "name": "Unauthenticated top page redirects to login",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\A-01.json"
+    },
+    {
+      "id": "A-02",
+      "name": "Unauthenticated event detail redirects to login",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\A-02.json"
+    },
+    {
+      "id": "F-01",
+      "name": "Admin verification rejects invalid password",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\F-01.json"
+    },
+    {
+      "id": "F-02",
+      "name": "Admin verification accepts configured password",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\F-02.json"
+    },
+    {
+      "id": "F-03",
+      "name": "Admin event create rejects missing required fields",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\F-03.json"
+    },
+    {
+      "id": "F-04",
+      "name": "Admin event create rejects end time before start time",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\F-04.json"
+    },
+    {
+      "id": "F-05",
+      "name": "Admin creates accepting event with start/end time",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\F-05.json"
+    },
+    {
+      "id": "F-06",
+      "name": "Admin updates event title and capacity fields",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\F-06.json"
+    },
+    {
+      "id": "F-07",
+      "name": "Admin creates draft event that remains traceable",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\F-07.json"
+    },
+    {
+      "id": "A-04",
+      "name": "Create two QA auth users and member records",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\A-04.json"
+    },
+    {
+      "id": "A-06",
+      "name": "Member created without nickname has no empty parentheses",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\A-06.json"
+    },
+    {
+      "id": "A-08",
+      "name": "Member PATCH without Authorization is rejected",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\A-08.json"
+    },
+    {
+      "id": "A-09",
+      "name": "Member POST without Authorization is rejected or flagged",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\A-09.json",
+      "important": {
+        "status": 400,
+        "body": {
+          "error": "auth_user_id が正しくありません"
+        },
+        "expected": "400, 401, or 403",
+        "passed": true
+      }
+    },
+    {
+      "id": "C-01",
+      "name": "Member joins accepting event",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\C-01.json"
+    },
+    {
+      "id": "C-02",
+      "name": "Same member duplicate join is rejected",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\C-02.json"
+    },
+    {
+      "id": "D-02",
+      "name": "Member who is not personally joining can add a friend",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\D-02.json"
+    },
+    {
+      "id": "D-03",
+      "name": "Member can add up to three friends",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\D-03.json"
+    },
+    {
+      "id": "D-04",
+      "name": "Fourth friend is rejected",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\D-04.json"
+    },
+    {
+      "id": "D-05",
+      "name": "Friend labels include inviter family name",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\D-05.json"
+    },
+    {
+      "id": "E-01/E-02",
+      "name": "Capacity closes event and overflow is rejected",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\E-01_E-02.json"
+    },
+    {
+      "id": "E-03/E-04",
+      "name": "Cancel active reopens only when below threshold without waitlist promotion",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\E-03_E-04.json"
+    },
+    {
+      "id": "C-06",
+      "name": "Member cannot cancel another member participant",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\C-06.json"
+    },
+    {
+      "id": "D-06",
+      "name": "Friends remain after inviter self-cancel",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\D-06.json"
+    },
+    {
+      "id": "D-07",
+      "name": "Inviter can cancel own friend after self-cancel",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\D-07.json"
+    },
+    {
+      "id": "D-08",
+      "name": "Other member cannot cancel a friend they do not own",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\D-08.json"
+    },
+    {
+      "id": "E-05",
+      "name": "Concurrent joins into capacity-one event keep exactly one active",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\E-05.json"
+    },
+    {
+      "id": "E-06",
+      "name": "Concurrent duplicate member joins do not create duplicate active rows",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\E-06.json"
+    },
+    {
+      "id": "G-01",
+      "name": "Anon direct participants update is blocked",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\G-01.json"
+    },
+    {
+      "id": "G-02",
+      "name": "Anon direct members update is blocked",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\G-02.json"
+    },
+    {
+      "id": "B-06",
+      "name": "Created event stores and exposes end date",
+      "status": "PASS",
+      "evidence": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\docs\\qa\\evidence\\2026-05-26-comprehensive-QA_KEEP_20260527035813\\B-06.json"
+    }
+  ]
+}

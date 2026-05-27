@@ -1,0 +1,15 @@
+{
+  "id": "D-05",
+  "name": "Friend labels include inviter family name",
+  "status": "PASS",
+  "startedAt": "2026-05-27T03:58:26.498Z",
+  "finishedAt": "2026-05-27T03:58:26.519Z",
+  "detail": {
+    "guestNames": [
+      "QA_KEEP_20260527035813 友達A(佐藤の友達)",
+      "QA_KEEP_20260527035813 友達2(佐藤の友達)",
+      "QA_KEEP_20260527035813 友達3(佐藤の友達)"
+    ],
+    "passed": true
+  }
+}

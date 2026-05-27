@@ -1,37 +1,35 @@
 {
-  "deletedCount": 5,
+  "deletedCount": 8,
   "deleted": [
     {
-      "id": "dc4e91f1-fa9b-45cd-b707-223e3bed7f64",
-      "title": "【運営確認用】 下書きイベント",
-      "status": "draft"
+      "id": "0fff443d-a961-4450-b058-475f5700654c",
+      "title": "QA_KEEP_20260527035813_DUPLICATE_CONCURRENCY",
+      "status": "accepting"
     },
     {
-      "id": "8350a9f9-bb4c-4283-b2ee-08fa6363cda5",
-      "title": "【運営確認用】 満員・キャンセル待ち例",
+      "id": "eae9fb29-3b41-4855-81c6-4ddcff985262",
+      "title": "QA_KEEP_20260527035813_CONCURRENCY",
       "status": "closed"
     },
     {
-      "id": "a7e7a45c-6ae3-42d8-955b-19952c07ee00",
-      "title": "【運営確認用】 受付中バスケ体験会",
+      "id": "a8def117-0a6a-4183-aece-1ff91914b3d8",
+      "title": "QA_KEEP_20260527035813_CAPACITY",
+      "status": "closed"
+    },
+    {
+      "id": "d2567398-2e31-4840-9a0b-8e4176deae71",
+      "title": "QA_KEEP_20260527035813_DRAFT",
+      "status": "draft"
+    },
+    {
+      "id": "6719bb15-3a19-44c3-bd46-f218c30d81c8",
+      "title": "QA_KEEP_20260527035813_MAIN_PATCHED",
       "status": "accepting"
     },
     {
-      "id": "065bd486-45a2-4f70-85fb-ab6ff9834692",
-      "title": "bbbbb",
-      "status": "accepting"
-    },
-    {
-      "id": "6defef7b-59e2-4ade-8943-4c51487118e6",
-      "title": "aaaaa",
-      "status": "accepting"
-    }
-  ],
-  "created": [
-    {
-      "id": "aceff598-0ecb-4d5f-9a37-150e57c354bd",
-      "title": "【運営確認用】 受付中バスケ体験会",
-      "status": "accepting"
+      "id": "f767dcbe-5952-420a-999f-f8ddaa6c6157",
+      "title": "【運営確認用】 下書きイベント",
+      "status": "draft"
     },
     {
       "id": "edd6aacf-e0c4-4f11-a952-d28df9e41b22",
@@ -39,7 +37,24 @@
       "status": "closed"
     },
     {
-      "id": "f767dcbe-5952-420a-999f-f8ddaa6c6157",
+      "id": "aceff598-0ecb-4d5f-9a37-150e57c354bd",
+      "title": "【運営確認用】 受付中バスケ体験会",
+      "status": "accepting"
+    }
+  ],
+  "created": [
+    {
+      "id": "e3bb5a81-9867-4099-bb7e-7ca1022bb6ca",
+      "title": "【運営確認用】 受付中バスケ体験会",
+      "status": "accepting"
+    },
+    {
+      "id": "3cc92b90-9a8c-458a-90da-115fa3c570db",
+      "title": "【運営確認用】 満員・締切例",
+      "status": "closed"
+    },
+    {
+      "id": "ff0c26cd-873a-42fc-bf9f-789d5572d22b",
       "title": "【運営確認用】 下書きイベント",
       "status": "draft"
     }
@@ -47,17 +62,17 @@
   "remainingDemoOrTestCount": 3,
   "remainingDemoOrTest": [
     {
-      "id": "f767dcbe-5952-420a-999f-f8ddaa6c6157",
+      "id": "ff0c26cd-873a-42fc-bf9f-789d5572d22b",
       "title": "【運営確認用】 下書きイベント",
       "status": "draft"
     },
     {
-      "id": "edd6aacf-e0c4-4f11-a952-d28df9e41b22",
-      "title": "【運営確認用】 満員・キャンセル待ち例",
+      "id": "3cc92b90-9a8c-458a-90da-115fa3c570db",
+      "title": "【運営確認用】 満員・締切例",
       "status": "closed"
     },
     {
-      "id": "aceff598-0ecb-4d5f-9a37-150e57c354bd",
+      "id": "e3bb5a81-9867-4099-bb7e-7ca1022bb6ca",
       "title": "【運営確認用】 受付中バスケ体験会",
       "status": "accepting"
     }

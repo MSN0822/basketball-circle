@@ -1,0 +1,15 @@
+{
+  "id": "C-02",
+  "name": "Same member duplicate join is rejected",
+  "status": "PASS",
+  "startedAt": "2026-05-27T03:58:23.472Z",
+  "finishedAt": "2026-05-27T03:58:24.036Z",
+  "detail": {
+    "status": 409,
+    "body": {
+      "error": "すでにこのイベントに登録済みです",
+      "status": "active"
+    },
+    "passed": true
+  }
+}
