@@ -188,7 +188,13 @@ export async function PATCH(req: NextRequest) {
   if (capacityError) return jsonError(capacityError)
 
   const patch: Record<string, unknown> = {}
-  if (status !== undefined) patch.status = status
+  if (status !== undefined) {
+    patch.status = status
+    // 手動で closed にしたとき → is_manual_close = true
+    // 手動で accepting / draft に戻したとき → is_manual_close = false にリセット
+    if (status === 'closed') patch.is_manual_close = true
+    else patch.is_manual_close = false
+  }
   if (title !== undefined) patch.title = title
   if (event_date !== undefined) patch.event_date = nextStart
   if (event_end_date !== undefined) patch.event_end_date = nextEnd

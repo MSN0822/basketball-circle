@@ -15,6 +15,7 @@ export interface Event {
   max_participants: number
   threshold: number
   status: EventStatus
+  is_manual_close: boolean
   created_at: string
 }
 

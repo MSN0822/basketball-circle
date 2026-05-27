@@ -54,7 +54,7 @@ async function syncEventStatusAfterActiveCancel(eventId: string) {
   const [{ data: event }, { count: activeCount }] = await Promise.all([
     supabase
       .from('events')
-      .select('status, threshold, max_participants, closes_at')
+      .select('status, threshold, max_participants, closes_at, is_manual_close')
       .eq('id', eventId)
       .single<Event>(),
     supabase
@@ -66,25 +66,27 @@ async function syncEventStatusAfterActiveCancel(eventId: string) {
 
   if (!event || event.status === 'draft') return
 
+  // 手動締切は自動再開しない
+  if (event.is_manual_close) return
+
   const active = activeCount ?? 0
   const activeBeforeCancel = active + 1
-  const isPastDeadline = Boolean(event.closes_at && new Date(event.closes_at).getTime() <= Date.now())
-  const shouldReopenAfterThresholdDrop =
+
+  // まだ定員以上なら締切のまま
+  if (active >= event.max_participants) return
+
+  // 定員到達・日時超過どちらによる締切でも、閾値を下回ったら再開
+  const shouldReopen =
     event.status === 'closed' &&
     active < event.threshold &&
     activeBeforeCancel >= event.threshold
-  const nextStatus =
-    isPastDeadline || active >= event.max_participants
-      ? 'closed'
-      : shouldReopenAfterThresholdDrop
-        ? 'accepting'
-        : event.status
 
-  if (nextStatus !== event.status) {
-    await supabase
-      .from('events')
-      .update({ status: nextStatus })
-      .eq('id', eventId)
+  if (shouldReopen) {
+    const patch: Record<string, unknown> = { status: 'accepting' }
+    // 締切日時が過去の場合はクリア（再開後に即再締切されないよう）
+    const isPastDeadline = Boolean(event.closes_at && new Date(event.closes_at).getTime() <= Date.now())
+    if (isPastDeadline) patch.closes_at = null
+    await supabase.from('events').update(patch).eq('id', eventId)
   }
 }
 
