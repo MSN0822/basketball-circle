@@ -1,0 +1,12 @@
+{
+  "id": "A-02",
+  "name": "Unauthenticated event detail redirects to login",
+  "status": "PASS",
+  "startedAt": "2026-05-27T04:38:39.238Z",
+  "finishedAt": "2026-05-27T04:38:39.334Z",
+  "detail": {
+    "status": 307,
+    "location": "/login",
+    "passed": true
+  }
+}

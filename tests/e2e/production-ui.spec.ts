@@ -154,7 +154,7 @@ test.describe('production UI smoke', () => {
     expect([307, 308]).toContain(detailHtml.status)
   })
 
-  test('authenticated participant can open event detail and capture join UI', async ({ page }) => {
+  test('authenticated participant can join and confirm before cancellation', async ({ page }) => {
     test.skip(!qaAuthEmail || !qaAuthPassword, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD for authenticated participant UI coverage.')
 
     await page.goto('/login')
@@ -171,5 +171,18 @@ test.describe('production UI smoke', () => {
     await page.locator('main button').first().click()
     await expect(page.locator('main')).toContainText(/キャンセル|参加|待機|登録/)
     await screenshot(page, '09-authenticated-event-detail-after-join.png')
+
+    await page.getByRole('button', { name: 'キャンセル' }).click()
+    await expect(page.getByRole('dialog')).toContainText(`参加者数が3人を下回るまで追加の参加申請はできません。`)
+    await screenshot(page, '10-cancel-confirm-dialog.png')
+
+    await page.getByRole('button', { name: 'キャンセルしない' }).click()
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(page.getByRole('button', { name: 'キャンセル' })).toBeVisible()
+
+    await page.getByRole('button', { name: 'キャンセル' }).click()
+    await page.getByRole('button', { name: 'キャンセルする' }).click()
+    await expect(page.locator('main')).toContainText('キャンセルしました。')
+    await screenshot(page, '11-after-confirmed-cancel.png')
   })
 })

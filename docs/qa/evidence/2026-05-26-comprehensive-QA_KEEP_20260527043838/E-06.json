@@ -1,0 +1,23 @@
+{
+  "id": "E-06",
+  "name": "Concurrent duplicate member joins do not create duplicate active rows",
+  "status": "PASS",
+  "startedAt": "2026-05-27T04:38:59.568Z",
+  "finishedAt": "2026-05-27T04:39:01.025Z",
+  "detail": {
+    "responseStatuses": [
+      200,
+      409,
+      409,
+      409
+    ],
+    "memberRows": [
+      {
+        "id": "7106385d-98b8-47c3-9e05-84249ea42c2e",
+        "status": "active",
+        "slot": 1
+      }
+    ],
+    "passed": true
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "A-06",
+  "name": "Member created without nickname has no empty parentheses",
+  "status": "PASS",
+  "startedAt": "2026-05-27T04:38:43.937Z",
+  "finishedAt": "2026-05-27T04:38:43.937Z",
+  "detail": {
+    "memberName": "QA_KEEP_20260527043838 山田 太郎",
+    "passed": true
+  }
+}

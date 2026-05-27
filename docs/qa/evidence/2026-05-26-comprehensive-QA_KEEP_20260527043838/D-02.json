@@ -1,0 +1,25 @@
+{
+  "id": "D-02",
+  "name": "Member who is not personally joining can add a friend",
+  "status": "PASS",
+  "startedAt": "2026-05-27T04:38:45.743Z",
+  "finishedAt": "2026-05-27T04:38:46.292Z",
+  "detail": {
+    "status": 200,
+    "body": {
+      "participant": {
+        "id": "e1147b77-a1ad-46f7-80cc-c9eed5d4ebe6",
+        "name": "QA_KEEP_20260527043838 友達A(佐藤の友達)",
+        "status": "active",
+        "event_id": "dc2748d6-66f5-41ab-87ff-8b081d2d4e86",
+        "member_id": null,
+        "user_code": "guest:94de1943-500e-4f5f-a10d-51106eb004c8:55635",
+        "created_at": "2026-05-27T04:38:46.354248+00:00",
+        "slot_number": 2
+      },
+      "waitlist": false,
+      "temporary_code": "55635"
+    },
+    "passed": true
+  }
+}
