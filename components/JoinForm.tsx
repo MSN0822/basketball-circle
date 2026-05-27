@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { Plus, X } from 'lucide-react'
 import { Event, Member, Participant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
 import { Button } from '@/components/ui/button'
@@ -53,12 +54,13 @@ async function getJsonAuthHeaders() {
 
 export default function JoinForm({ event }: Props) {
   const [member, setMember] = useState<Member | null>(null)
-  const [action, setAction] = useState<'join' | 'cancel' | 'guest' | string | null>(null)
+  const [action, setAction] = useState<'join' | 'cancel' | string | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [participation, setParticipation] = useState<Participant | null>(null)
   const [guests, setGuests] = useState<Participant[]>([])
-  const [guestName, setGuestName] = useState('')
+  const [guestNames, setGuestNames] = useState([''])
+  const [activeCount, setActiveCount] = useState(0)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   const loadParticipation = useCallback(async (memberId: string) => {
@@ -86,9 +88,19 @@ export default function JoinForm({ event }: Props) {
     setGuests((data as Participant[] | null) ?? [])
   }, [event.id])
 
+  const loadActiveCount = useCallback(async () => {
+    const { count } = await supabase
+      .from('participants')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_id', event.id)
+      .eq('status', 'active')
+
+    setActiveCount(count ?? 0)
+  }, [event.id])
+
   const reloadMine = useCallback(async (memberId: string) => {
-    await Promise.all([loadParticipation(memberId), loadGuests(memberId)])
-  }, [loadGuests, loadParticipation])
+    await Promise.all([loadParticipation(memberId), loadGuests(memberId), loadActiveCount()])
+  }, [loadActiveCount, loadGuests, loadParticipation])
 
   useEffect(() => {
     async function load() {
@@ -122,6 +134,34 @@ export default function JoinForm({ event }: Props) {
     return () => { supabase.removeChannel(channel) }
   }, [event.id, member, reloadMine])
 
+  const remainingSlots = Math.max(event.max_participants - activeCount, 0)
+  const canAddGuest = event.status === 'accepting' && remainingSlots > 0
+  const canAddGuestInput = canAddGuest && guestNames.length < remainingSlots
+  const isAddingGuest = typeof action === 'string' && action.startsWith('guest:')
+
+  function updateGuestName(index: number, value: string) {
+    setGuestNames(current => current.map((name, i) => i === index ? value : name))
+  }
+
+  function addGuestInput() {
+    if (!canAddGuestInput) return
+    setGuestNames(current => [...current, ''])
+  }
+
+  function removeGuestInput(index: number) {
+    setGuestNames(current => {
+      if (current.length === 1) return ['']
+      return current.filter((_, i) => i !== index)
+    })
+  }
+
+  function clearGuestInput(index: number) {
+    setGuestNames(current => {
+      if (current.length === 1) return ['']
+      return current.filter((_, i) => i !== index)
+    })
+  }
+
   async function handleJoin() {
     if (!member) return
     setAction('join')
@@ -138,13 +178,14 @@ export default function JoinForm({ event }: Props) {
     setAction(null)
 
     if (!res.ok) {
-      setError(data.error ?? '申請に失敗しました')
+      setError(data.error ?? '参加申請に失敗しました')
       await reloadMine(member.id)
       return
     }
 
     setParticipation(data.participant ?? null)
-    setMessage('参加登録が完了しました！')
+    setMessage('参加登録が完了しました。')
+    await reloadMine(member.id)
     window.dispatchEvent(new CustomEvent('participants-changed', { detail: { eventId: event.id } }))
   }
 
@@ -171,23 +212,26 @@ export default function JoinForm({ event }: Props) {
     setParticipation(null)
     setShowCancelConfirm(false)
     setMessage('キャンセルしました。')
+    await reloadMine(member.id)
     window.dispatchEvent(new CustomEvent('participants-changed', { detail: { eventId: event.id } }))
   }
 
-  async function handleAddGuest() {
+  async function handleAddGuest(index: number) {
     if (!member) return
 
-    const baseGuestName = guestName.trim()
+    const baseGuestName = guestNames[index]?.trim() ?? ''
     if (!baseGuestName) {
       setError('友達の名前を入力してください')
       return
     }
-    if (guests.length >= 3) {
-      setError('友達の臨時ID発行は1イベント3名までです')
+    if (!canAddGuest) {
+      setError('定員に達しているため、友達を追加できません')
+      await reloadMine(member.id)
       return
     }
 
-    setAction('guest')
+    const guestAction = `guest:${index}`
+    setAction(guestAction)
     setError('')
     setMessage('')
 
@@ -196,7 +240,7 @@ export default function JoinForm({ event }: Props) {
       headers: await getJsonAuthHeaders(),
       body: JSON.stringify({
         event_id: event.id,
-        name: `${baseGuestName}（${getFamilyName(member.name)}の友達）`,
+        name: `${baseGuestName}(${getFamilyName(member.name)}の友達)`,
         member_id: member.id,
         guest: true,
       }),
@@ -211,7 +255,7 @@ export default function JoinForm({ event }: Props) {
       return
     }
 
-    setGuestName('')
+    clearGuestInput(index)
     setMessage(`友達を追加しました。臨時ID: ${data.temporary_code ?? '発行済み'}`)
     await reloadMine(member.id)
     window.dispatchEvent(new CustomEvent('participants-changed', { detail: { eventId: event.id } }))
@@ -313,29 +357,63 @@ export default function JoinForm({ event }: Props) {
       </Dialog>
 
       <div className="space-y-3 rounded-md border bg-background p-3">
-        <div>
-          <p className="text-sm font-medium">友達を呼ぶ</p>
-          <p className="text-xs text-muted-foreground">
-            {participation
-              ? 'このイベントだけ有効な臨時IDを3名まで発行できます。'
-              : '自分が参加しない場合でも、友達の臨時IDを3名まで発行できます。'}
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <Input
-            value={guestName}
-            onChange={e => setGuestName(e.target.value)}
-            placeholder="友達の名前"
-            disabled={guests.length >= 3 || action === 'guest'}
-          />
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">友達を呼ぶ</p>
+            <p className="text-xs text-muted-foreground">
+              自分が参加しない場合でも、空き枠の範囲で友達の臨時IDを発行できます。
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              現在の参加者 {activeCount} / {event.max_participants}、追加可能 {remainingSlots} 名
+            </p>
+          </div>
           <Button
             type="button"
-            onClick={handleAddGuest}
-            disabled={guests.length >= 3 || action === 'guest'}
+            size="icon"
+            variant="outline"
+            onClick={addGuestInput}
+            disabled={!canAddGuestInput || isAddingGuest}
+            aria-label="友達入力欄を追加"
+            title="友達入力欄を追加"
           >
-            {action === 'guest' ? '発行中...' : '追加'}
+            <Plus className="h-4 w-4" />
           </Button>
+        </div>
+
+        <div className="space-y-2">
+          {guestNames.map((name, index) => {
+            const guestAction = `guest:${index}`
+            return (
+              <div key={index} className="flex gap-2">
+                <Input
+                  value={name}
+                  onChange={e => updateGuestName(index, e.target.value)}
+                  placeholder={`友達${index + 1}の名前`}
+                  disabled={!canAddGuest || isAddingGuest}
+                />
+                {guestNames.length > 1 && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => removeGuestInput(index)}
+                    disabled={isAddingGuest}
+                    aria-label="友達入力欄を削除"
+                    title="友達入力欄を削除"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  onClick={() => handleAddGuest(index)}
+                  disabled={!canAddGuest || !name.trim() || action === guestAction}
+                >
+                  {action === guestAction ? '発行中...' : '追加'}
+                </Button>
+              </div>
+            )
+          })}
         </div>
 
         {guests.length > 0 && (
@@ -362,7 +440,9 @@ export default function JoinForm({ event }: Props) {
           </div>
         )}
 
-        <p className="text-xs text-muted-foreground">{guests.length} / 3 名発行済み</p>
+        <p className="text-xs text-muted-foreground">
+          友達の臨時ID発行済み: {guests.length} 名
+        </p>
       </div>
     </div>
   )

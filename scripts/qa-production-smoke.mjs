@@ -383,7 +383,7 @@ await record('D-02', 'Member who is not personally joining can add a friend', as
   return { status: res.status, body: res.body, passed: res.ok && res.body.participant?.user_code?.startsWith(`guest:${memberB.member.id}:`) }
 })
 
-await record('D-03', 'Member can add up to three friends', async () => {
+await record('D-03', 'Member can add multiple friends while seats remain', async () => {
   const firstGuestCount = (await getParticipants(mainEvent.id)).filter(p => String(p.user_code).startsWith(`guest:${memberB.member.id}:`) && p.status !== 'cancelled').length
   const adds = []
   for (let i = firstGuestCount + 1; i <= 3; i += 1) {
@@ -392,15 +392,15 @@ await record('D-03', 'Member can add up to three friends', async () => {
   return { statuses: adds.map(r => r.status), passed: adds.every(r => r.ok) }
 })
 
-await record('D-04', 'Fourth friend is rejected', async () => {
+await record('D-04', 'Fourth friend is accepted when event capacity remains', async () => {
   const res = await join(mainEvent.id, `${runId} 友達4(佐藤の友達)`, memberB.member.id, true, memberB.accessToken)
-  return { status: res.status, body: res.body, passed: res.status === 400 }
+  return { status: res.status, body: res.body, passed: res.ok && res.body.participant?.user_code?.startsWith(`guest:${memberB.member.id}:`) }
 })
 
 await record('D-05', 'Friend labels include inviter family name', async () => {
   const participants = await getParticipants(mainEvent.id)
   const guests = participants.filter(p => String(p.user_code).startsWith(`guest:${memberB.member.id}:`) && p.status !== 'cancelled')
-  return { guestNames: guests.map(g => g.name), passed: guests.length >= 3 && guests.every(g => g.name.includes('(佐藤の友達)')) }
+  return { guestNames: guests.map(g => g.name), passed: guests.length >= 4 && guests.every(g => g.name.includes('(佐藤の友達)')) }
 })
 
 await record('E-01/E-02', 'Capacity closes event and overflow is rejected', async () => {
@@ -453,7 +453,7 @@ await record('D-06', 'Friends remain after inviter self-cancel', async () => {
   const resCancel = await cancel(memberB ? (await getParticipants(mainEvent.id)).find(p => p.member_id === memberB.member.id)?.id : null, memberB.member.id, null, false, memberB.accessToken)
   const participants = await getParticipants(mainEvent.id)
   const activeGuests = participants.filter(p => String(p.user_code).startsWith(`guest:${memberB.member.id}:`) && p.status !== 'cancelled')
-  return { cancelStatus: resCancel.status, activeGuestCount: activeGuests.length, passed: resCancel.ok && activeGuests.length === 3 }
+  return { cancelStatus: resCancel.status, activeGuestCount: activeGuests.length, passed: resCancel.ok && activeGuests.length === 4 }
 })
 
 await record('D-07', 'Inviter can cancel own friend after self-cancel', async () => {
