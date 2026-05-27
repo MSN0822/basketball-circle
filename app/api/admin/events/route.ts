@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { title, event_date, event_end_date, location, location_url = null, closes_at = null, publishes_at = null, max_participants = 40, threshold = 30, status = 'accepting' } = body
+  const { title, event_date, event_end_date, location, location_url = null, closes_at = null, publishes_at = null, max_participants = 35, threshold = 30, status = 'accepting' } = body
 
   if (!title || !event_date || !event_end_date || !location) {
     return NextResponse.json({ error: 'title, event_date, event_end_date, location は必須です' }, { status: 400 })

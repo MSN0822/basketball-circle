@@ -124,7 +124,7 @@ created.push(await createEvent({
 ]))
 
 created.push(await createEvent({
-  title: `${demoPrefix} 満員・キャンセル待ち例`,
+  title: `${demoPrefix} 満員・締切例`,
   event_date: hoursFromNow(24 * 14),
   event_end_date: hoursFromNow(24 * 14 + 2),
   location: '△△スポーツセンター',
@@ -138,7 +138,6 @@ created.push(await createEvent({
   { name: '高橋 一郎', status: 'active', slot_number: 1 },
   { name: '伊藤 美咲', status: 'active', slot_number: 2 },
   { name: '渡辺 大輔', status: 'active', slot_number: 3 },
-  { name: '小林 直人', status: 'waitlist', slot_number: 1 },
 ]))
 
 created.push(await createEvent({

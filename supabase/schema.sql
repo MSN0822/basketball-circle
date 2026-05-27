@@ -8,7 +8,7 @@ create table events (
   location_url     text,
   closes_at        timestamptz,
   publishes_at     timestamptz,
-  max_participants int not null default 40,
+  max_participants int not null default 35,
   threshold        int not null default 30,
   status           text not null default 'accepting' check (status in ('accepting', 'closed', 'draft')),
   created_at       timestamptz not null default now()

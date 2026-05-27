@@ -74,7 +74,7 @@ export default function AdminEditPage() {
   const [locationUrl, setLocationUrl] = useState('')
   const [closesAt, setClosesAt] = useState('')
   const [publishesAt, setPublishesAt] = useState('')
-  const [maxParticipants, setMaxParticipants] = useState('40')
+  const [maxParticipants, setMaxParticipants] = useState('35')
   const [threshold, setThreshold] = useState('30')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')

@@ -17,6 +17,9 @@ type RpcError = {
   message?: string
 }
 
+const CLOSED_MESSAGE = '定員に達したため締め切りました。参加枠が閾値未満になるまで追加申請できません'
+const NOT_ACCEPTING_MESSAGE = '現在は参加申請を受け付けていません'
+
 function shouldFallbackToLegacyJoin(error: RpcError): boolean {
   return error.code === 'PGRST202' || Boolean(error.message?.includes('join_event'))
 }
@@ -77,37 +80,16 @@ async function legacyJoin(eventId: string, name: string, memberId: string | null
   const userCode = guest ? `guest:${memberId}:${temporaryCode}` : temporaryCode
   const participantMemberId = guest ? null : memberId
 
-  if (event.status === 'accepting' && current < event.max_participants) {
-    const slotNumber = current + 1
-    const { data, error } = await supabase
-      .from('participants')
-      .insert({
-        event_id: eventId,
-        name,
-        user_code: userCode,
-        member_id: participantMemberId,
-        status: 'active',
-        slot_number: slotNumber,
-      })
-      .select()
-      .single<Participant>()
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-    if (slotNumber >= event.max_participants) {
-      await supabase.from('events').update({ status: 'closed' }).eq('id', eventId)
-    }
-
-    return NextResponse.json({ participant: data, temporary_code: temporaryCode })
+  if (event.status !== 'accepting') {
+    return NextResponse.json({ error: NOT_ACCEPTING_MESSAGE }, { status: 409 })
   }
 
-  const { count: waitlistCount } = await supabase
-    .from('participants')
-    .select('*', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .eq('status', 'waitlist')
+  if (current >= event.max_participants) {
+    await supabase.from('events').update({ status: 'closed' }).eq('id', eventId)
+    return NextResponse.json({ error: CLOSED_MESSAGE }, { status: 409 })
+  }
 
-  const waitSlot = (waitlistCount ?? 0) + 1
+  const slotNumber = current + 1
   const { data, error } = await supabase
     .from('participants')
     .insert({
@@ -115,14 +97,19 @@ async function legacyJoin(eventId: string, name: string, memberId: string | null
       name,
       user_code: userCode,
       member_id: participantMemberId,
-      status: 'waitlist',
-      slot_number: waitSlot,
+      status: 'active',
+      slot_number: slotNumber,
     })
     .select()
     .single<Participant>()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ participant: data, waitlist: true, temporary_code: temporaryCode })
+
+  if (slotNumber >= event.max_participants) {
+    await supabase.from('events').update({ status: 'closed' }).eq('id', eventId)
+  }
+
+  return NextResponse.json({ participant: data, temporary_code: temporaryCode })
 }
 
 export async function POST(req: NextRequest) {
@@ -168,9 +155,19 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  if (result.waitlist) {
+    if (result.participant?.id) {
+      await supabase
+        .from('participants')
+        .delete()
+        .eq('id', result.participant.id)
+    }
+    return NextResponse.json({ error: CLOSED_MESSAGE }, { status: 409 })
+  }
+
   return NextResponse.json({
     participant: result.participant,
-    waitlist: result.waitlist,
+    waitlist: false,
     temporary_code: temporaryCode,
   })
 }

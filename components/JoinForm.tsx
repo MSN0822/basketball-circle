@@ -125,7 +125,7 @@ export default function JoinForm({ event }: Props) {
     }
 
     setParticipation(data.participant ?? null)
-    setMessage(data.waitlist ? 'キャンセル待ちに登録しました！' : '参加登録が完了しました！')
+    setMessage('参加登録が完了しました！')
     window.dispatchEvent(new CustomEvent('participants-changed', { detail: { eventId: event.id } }))
   }
 
@@ -258,7 +258,7 @@ export default function JoinForm({ event }: Props) {
         </Button>
       ) : (
         <Button onClick={handleJoin} disabled={action === 'join'} className="w-full">
-          {action === 'join' ? '処理中...' : event.status === 'accepting' ? '参加申請する' : 'キャンセル待ちに登録する'}
+          {action === 'join' ? '処理中...' : '参加申請する'}
         </Button>
       )}
 

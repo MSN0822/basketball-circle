@@ -18,13 +18,8 @@ async function updateParticipant(id: string, patch: ParticipantPatch) {
   if (error) throw error
 }
 
-async function normalizeSlots(eventId: string, shouldPromote: boolean) {
-  const [{ data: event }, { data: activeData }, { data: waitlistData }] = await Promise.all([
-    supabase
-      .from('events')
-      .select('threshold, max_participants')
-      .eq('id', eventId)
-      .single<Event>(),
+async function normalizeSlots(eventId: string) {
+  const [{ data: activeData }, { data: waitlistData }] = await Promise.all([
     supabase
       .from('participants')
       .select('*')
@@ -43,21 +38,6 @@ async function normalizeSlots(eventId: string, shouldPromote: boolean) {
 
   const active = activeData ?? []
   const waitlist = waitlistData ?? []
-
-  if (shouldPromote && event && active.length < event.threshold && waitlist.length > 0) {
-    const [next, ...remainingWaitlist] = waitlist
-    const promotedActive = [...active, { ...next, status: 'active' as const }]
-
-    await Promise.all([
-      ...promotedActive.map((p, index) =>
-        updateParticipant(p.id, { status: 'active', slot_number: index + 1 })
-      ),
-      ...remainingWaitlist.map((p, index) =>
-        updateParticipant(p.id, { status: 'waitlist', slot_number: index + 1 })
-      ),
-    ])
-    return
-  }
 
   await Promise.all([
     ...active.map((p, index) =>
@@ -147,7 +127,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await normalizeSlots(participant.event_id, wasActive)
+    await normalizeSlots(participant.event_id)
     if (wasActive) {
       await syncEventStatusAfterActiveCancel(participant.event_id)
     }

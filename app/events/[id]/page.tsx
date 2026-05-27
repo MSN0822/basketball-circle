@@ -62,7 +62,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   const active = participants.filter(p => p.status === 'active')
   const isFull = active.length >= event.max_participants
   const canJoin = event.status === 'accepting' && !isFull
-  const canWaitlist = event.status === 'closed' || (event.status === 'accepting' && isFull)
 
   return (
     <main className="max-w-lg mx-auto px-4 py-8 space-y-6">
@@ -98,11 +97,11 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       <Separator />
 
       {/* 参加申請フォーム */}
-      {(canJoin || canWaitlist) && (
+      {canJoin && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
-              {canJoin ? '参加申請' : 'キャンセル待ち登録'}
+              参加申請
             </CardTitle>
           </CardHeader>
           <CardContent>

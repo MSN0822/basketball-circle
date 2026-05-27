@@ -363,7 +363,7 @@ await record('D-05', 'Friend labels include inviter family name', async () => {
   return { guestNames: guests.map(g => g.name), passed: guests.length >= 3 && guests.every(g => g.name.includes('(佐藤の友達)')) }
 })
 
-await record('E-01/E-02', 'Capacity closes event and overflow becomes waitlist', async () => {
+await record('E-01/E-02', 'Capacity closes event and overflow is rejected', async () => {
   capacityEvent = await createEvent('CAPACITY', { max_participants: 2, threshold: 2 })
   const one = await join(capacityEvent.id, `${runId} 定員A`, null)
   const two = await join(capacityEvent.id, `${runId} 定員B`, null)
@@ -374,21 +374,27 @@ await record('E-01/E-02', 'Capacity closes event and overflow becomes waitlist',
     statuses: [one.status, two.status, three.status],
     participantStatuses: participants.map(p => ({ name: p.name, status: p.status, slot: p.slot_number })),
     eventStatus: event?.status,
-    passed: one.ok && two.ok && three.ok && event?.status === 'closed' && participants.filter(p => p.status === 'active').length === 2 && participants.filter(p => p.status === 'waitlist').length === 1,
+    passed: one.ok && two.ok && three.status === 409 && event?.status === 'closed' && participants.filter(p => p.status === 'active').length === 2 && participants.filter(p => p.status === 'waitlist').length === 0,
   }
 })
 
-await record('E-03/E-04', 'Cancel active promotes waitlist and reopens when below threshold', async () => {
+await record('E-03/E-04', 'Cancel active reopens only when below threshold without waitlist promotion', async () => {
   const participantsBefore = await getParticipants(capacityEvent.id)
   const firstActive = participantsBefore.find(p => p.status === 'active')
   const res = await cancel(firstActive.id, null, firstActive.user_code)
   const event = await getEvent(capacityEvent.id)
   const participantsAfter = await getParticipants(capacityEvent.id)
+  const refill = await join(capacityEvent.id, `${runId} 再受付`, null)
+  const eventAfterRefill = await getEvent(capacityEvent.id)
+  const participantsAfterRefill = await getParticipants(capacityEvent.id)
   return {
     cancelStatus: res.status,
     eventStatus: event?.status,
+    refillStatus: refill.status,
+    eventStatusAfterRefill: eventAfterRefill?.status,
     participantsAfter: participantsAfter.map(p => ({ name: p.name, status: p.status, slot: p.slot_number })),
-    passed: res.ok && event?.status === 'closed' && participantsAfter.filter(p => p.status === 'active').length === 2 && participantsAfter.filter(p => p.status === 'waitlist').length === 0,
+    participantsAfterRefill: participantsAfterRefill.map(p => ({ name: p.name, status: p.status, slot: p.slot_number })),
+    passed: res.ok && event?.status === 'accepting' && participantsAfter.filter(p => p.status === 'active').length === 1 && participantsAfter.filter(p => p.status === 'waitlist').length === 0 && refill.ok && eventAfterRefill?.status === 'closed' && participantsAfterRefill.filter(p => p.status === 'active').length === 2 && participantsAfterRefill.filter(p => p.status === 'waitlist').length === 0,
   }
 })
 
@@ -432,7 +438,7 @@ await record('E-05', 'Concurrent joins into capacity-one event keep exactly one 
     responseStatuses: responses.map(r => r.status),
     participantStatuses: participants.map(p => ({ name: p.name, status: p.status, slot: p.slot_number })),
     eventStatus: event?.status,
-    passed: participants.filter(p => p.status === 'active').length === 1 && participants.filter(p => p.status === 'waitlist').length === 4 && event?.status === 'closed',
+    passed: responses.filter(r => r.ok).length === 1 && responses.filter(r => r.status === 409).length === 4 && participants.filter(p => p.status === 'active').length === 1 && participants.filter(p => p.status === 'waitlist').length === 0 && event?.status === 'closed',
   }
 })
 
