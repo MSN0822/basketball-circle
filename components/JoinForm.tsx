@@ -6,6 +6,14 @@ import { Event, Member, Participant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 const supabase = getSupabase()
 
@@ -41,6 +49,7 @@ export default function JoinForm({ event }: Props) {
   const [participation, setParticipation] = useState<Participant | null>(null)
   const [guests, setGuests] = useState<Participant[]>([])
   const [guestName, setGuestName] = useState('')
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   const loadParticipation = useCallback(async (memberId: string) => {
     const { data } = await supabase
@@ -150,6 +159,7 @@ export default function JoinForm({ event }: Props) {
     }
 
     setParticipation(null)
+    setShowCancelConfirm(false)
     setMessage('キャンセルしました。')
     window.dispatchEvent(new CustomEvent('participants-changed', { detail: { eventId: event.id } }))
   }
@@ -249,7 +259,7 @@ export default function JoinForm({ event }: Props) {
 
       {participation ? (
         <Button
-          onClick={handleCancel}
+          onClick={() => setShowCancelConfirm(true)}
           disabled={action === 'cancel'}
           variant="destructive"
           className="w-full"
@@ -261,6 +271,36 @@ export default function JoinForm({ event }: Props) {
           {action === 'join' ? '処理中...' : '参加申請する'}
         </Button>
       )}
+
+      <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>キャンセル確認</DialogTitle>
+            <DialogDescription>
+              参加者数が{event.threshold}人を下回るまで追加の参加申請はできません。
+              キャンセルしてもよろしいですか？
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowCancelConfirm(false)}
+              disabled={action === 'cancel'}
+            >
+              キャンセルしない
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleCancel}
+              disabled={action === 'cancel'}
+            >
+              {action === 'cancel' ? '処理中...' : 'キャンセルする'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="space-y-3 rounded-md border bg-background p-3">
         <div>
