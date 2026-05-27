@@ -44,7 +44,7 @@ export default async function HomePage() {
       <div className="flex justify-end">
         <MemberHeader />
       </div>
-      <h1 className="text-2xl font-bold">バスケサークル 参加管理</h1>
+      <h1 className="text-2xl font-bold">ぶらんかーず</h1>
 
       {events.length === 0 ? (
         <p className="text-muted-foreground">現在公開中のイベントはありません</p>

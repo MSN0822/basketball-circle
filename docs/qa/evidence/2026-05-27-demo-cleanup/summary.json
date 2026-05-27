@@ -1,95 +1,146 @@
 {
-  "deletedCount": 11,
+  "beforeCount": 1,
+  "deletedCount": 1,
   "deleted": [
     {
-      "id": "b2b44c14-2437-4df3-ab0a-e4301c5d5202",
-      "title": "QA_KEEP_20260527043838_DEADLINE_REOPEN",
-      "status": "closed"
-    },
-    {
-      "id": "144e9e13-9a8a-4971-8b6c-b26266f7f7d7",
-      "title": "QA_KEEP_20260527043838_DEADLINE",
-      "status": "closed"
-    },
-    {
-      "id": "1d8b4cbe-1edb-49d9-ad55-6365a2fda87f",
-      "title": "QA_KEEP_20260527043838_DUPLICATE_CONCURRENCY",
-      "status": "accepting"
-    },
-    {
-      "id": "41a6ce13-872c-4d8c-be67-a64742ff2fef",
-      "title": "QA_KEEP_20260527043838_CONCURRENCY",
-      "status": "closed"
-    },
-    {
-      "id": "d3ada351-b6c0-4dd6-8fa2-59b85a608ab0",
-      "title": "QA_KEEP_20260527043838_CAPACITY",
-      "status": "closed"
-    },
-    {
-      "id": "74b0fa6e-75be-4843-8ef1-ed9f95b958fb",
-      "title": "QA_KEEP_20260527043838_DRAFT",
-      "status": "draft"
-    },
-    {
-      "id": "dc2748d6-66f5-41ab-87ff-8b081d2d4e86",
-      "title": "QA_KEEP_20260527043838_MAIN_PATCHED",
-      "status": "accepting"
-    },
-    {
-      "id": "1fed976b-57e5-4d86-a39a-6aeb44c026d4",
-      "title": "QA_KEEP_UI_20260527043759_UI_EVENT",
-      "status": "accepting"
-    },
-    {
-      "id": "228aad77-ee6a-4b00-affd-eb556ef6b5d5",
-      "title": "【運営確認用】 下書きイベント",
-      "status": "draft"
-    },
-    {
-      "id": "882418bb-70f9-4cc2-ae10-5554dfc45a77",
-      "title": "【運営確認用】 満員・締切例",
-      "status": "closed"
-    },
-    {
-      "id": "e5422dca-bdb9-49af-93ca-e22295be5dc0",
-      "title": "【運営確認用】 受付中バスケ体験会",
+      "id": "e4d42998-a12a-4cd4-a6eb-d23e761406d5",
+      "title": "【運営確認用】ぶらんかーず参加管理デモ",
       "status": "accepting"
     }
   ],
   "created": [
     {
-      "id": "e4d42998-a12a-4cd4-a6eb-d23e761406d5",
-      "title": "【運営確認用】 受付中バスケ体験会",
-      "status": "accepting"
+      "id": "2b60aeb6-0bbf-4aa8-90d4-64c51ba38c20",
+      "title": "【運営確認用】受付中・参加申請デモ",
+      "status": "accepting",
+      "max_participants": 35,
+      "threshold": 30
     },
     {
-      "id": "088eccb7-a91b-4f99-aa35-f94ea27365d4",
-      "title": "【運営確認用】 満員・締切例",
-      "status": "closed"
+      "id": "eb68f7e5-bfb7-491c-8429-3ad790a5c31d",
+      "title": "【運営確認用】満員締切デモ",
+      "status": "closed",
+      "max_participants": 3,
+      "threshold": 3
     },
     {
-      "id": "d03e8132-efd8-42aa-ba58-06345447c779",
-      "title": "【運営確認用】 下書きイベント",
-      "status": "draft"
+      "id": "25f98b4c-3304-49ef-824c-4dd91d6e1472",
+      "title": "【運営確認用】締切日時超過デモ",
+      "status": "closed",
+      "max_participants": 35,
+      "threshold": 30
+    },
+    {
+      "id": "f14e3bf0-85d4-48bf-8427-0d90f0d553ab",
+      "title": "【運営確認用】下書きデモ",
+      "status": "draft",
+      "max_participants": 35,
+      "threshold": 30
     }
   ],
-  "remainingDemoOrTestCount": 3,
-  "remainingDemoOrTest": [
+  "visibleToUsersCount": 3,
+  "finalEventCount": 4,
+  "finalEvents": [
     {
-      "id": "d03e8132-efd8-42aa-ba58-06345447c779",
-      "title": "【運営確認用】 下書きイベント",
-      "status": "draft"
+      "id": "f14e3bf0-85d4-48bf-8427-0d90f0d553ab",
+      "title": "【運営確認用】下書きデモ",
+      "status": "draft",
+      "event_date": "2026-06-27T10:00:00+00:00",
+      "event_end_date": "2026-06-27T12:00:00+00:00",
+      "max_participants": 35,
+      "threshold": 30
     },
     {
-      "id": "088eccb7-a91b-4f99-aa35-f94ea27365d4",
-      "title": "【運営確認用】 満員・締切例",
-      "status": "closed"
+      "id": "25f98b4c-3304-49ef-824c-4dd91d6e1472",
+      "title": "【運営確認用】締切日時超過デモ",
+      "status": "closed",
+      "event_date": "2026-06-20T10:00:00+00:00",
+      "event_end_date": "2026-06-20T12:00:00+00:00",
+      "max_participants": 35,
+      "threshold": 30
     },
     {
-      "id": "e4d42998-a12a-4cd4-a6eb-d23e761406d5",
-      "title": "【運営確認用】 受付中バスケ体験会",
-      "status": "accepting"
+      "id": "eb68f7e5-bfb7-491c-8429-3ad790a5c31d",
+      "title": "【運営確認用】満員締切デモ",
+      "status": "closed",
+      "event_date": "2026-06-13T10:00:00+00:00",
+      "event_end_date": "2026-06-13T12:00:00+00:00",
+      "max_participants": 3,
+      "threshold": 3
+    },
+    {
+      "id": "2b60aeb6-0bbf-4aa8-90d4-64c51ba38c20",
+      "title": "【運営確認用】受付中・参加申請デモ",
+      "status": "accepting",
+      "event_date": "2026-06-06T10:00:00+00:00",
+      "event_end_date": "2026-06-06T12:00:00+00:00",
+      "max_participants": 35,
+      "threshold": 30
+    }
+  ],
+  "participants": [
+    {
+      "event_id": "25f98b4c-3304-49ef-824c-4dd91d6e1472",
+      "name": "小林 亮",
+      "status": "active",
+      "slot_number": 1,
+      "is_guest": false
+    },
+    {
+      "event_id": "25f98b4c-3304-49ef-824c-4dd91d6e1472",
+      "name": "加藤 真由",
+      "status": "active",
+      "slot_number": 2,
+      "is_guest": false
+    },
+    {
+      "event_id": "2b60aeb6-0bbf-4aa8-90d4-64c51ba38c20",
+      "name": "佐藤 太郎(たろちゃん)",
+      "status": "active",
+      "slot_number": 1,
+      "is_guest": false
+    },
+    {
+      "event_id": "2b60aeb6-0bbf-4aa8-90d4-64c51ba38c20",
+      "name": "鈴木 花子",
+      "status": "active",
+      "slot_number": 2,
+      "is_guest": false
+    },
+    {
+      "event_id": "2b60aeb6-0bbf-4aa8-90d4-64c51ba38c20",
+      "name": "山田 一郎",
+      "status": "active",
+      "slot_number": 3,
+      "is_guest": false
+    },
+    {
+      "event_id": "2b60aeb6-0bbf-4aa8-90d4-64c51ba38c20",
+      "name": "田中 友人(佐藤の友達)",
+      "status": "active",
+      "slot_number": 4,
+      "is_guest": true
+    },
+    {
+      "event_id": "eb68f7e5-bfb7-491c-8429-3ad790a5c31d",
+      "name": "高橋 健太",
+      "status": "active",
+      "slot_number": 1,
+      "is_guest": false
+    },
+    {
+      "event_id": "eb68f7e5-bfb7-491c-8429-3ad790a5c31d",
+      "name": "伊藤 美咲",
+      "status": "active",
+      "slot_number": 2,
+      "is_guest": false
+    },
+    {
+      "event_id": "eb68f7e5-bfb7-491c-8429-3ad790a5c31d",
+      "name": "渡辺 大輔",
+      "status": "active",
+      "slot_number": 3,
+      "is_guest": false
     }
   ]
 }
