@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { createClient } from '@supabase/supabase-js'
 
 const root = process.cwd()
 const envPath = path.join(root, '.env.local')
@@ -17,11 +18,26 @@ const env = Object.fromEntries(
 const BASE_URL = process.env.QA_BASE_URL ?? 'https://basketball-circle.vercel.app'
 const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_ANON_KEY = env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY
 const ADMIN_PASSWORD = env.ADMIN_PASSWORD
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !ADMIN_PASSWORD) {
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !ADMIN_PASSWORD) {
   throw new Error('Required local QA environment values are missing.')
 }
+
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+})
+
+const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+})
 
 const runId = `QA_KEEP_${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
 const evidenceDir = path.join(root, 'docs', 'qa', 'evidence', `2026-05-26-comprehensive-${runId}`)
@@ -41,6 +57,7 @@ const created = {
 function redact(value) {
   if (typeof value !== 'string') return value
   if (value.includes(SUPABASE_ANON_KEY)) return value.replaceAll(SUPABASE_ANON_KEY, '[REDACTED_ANON_KEY]')
+  if (value.includes(SUPABASE_SERVICE_ROLE_KEY)) return value.replaceAll(SUPABASE_SERVICE_ROLE_KEY, '[REDACTED_SERVICE_ROLE_KEY]')
   if (value.includes(ADMIN_PASSWORD)) return value.replaceAll(ADMIN_PASSWORD, '[REDACTED_ADMIN_PASSWORD]')
   return value
 }
@@ -148,23 +165,26 @@ async function createEvent(suffix, overrides = {}) {
 async function createAuthUserAndMember(label, displayName) {
   const email = `qa_keep_${runId.toLowerCase()}_${label}@example.com`
   const password = `QaKeep-${runId}-${label}-12345`
-  const signup = await fetchJson(`${SUPABASE_URL}/auth/v1/signup`, {
-    method: 'POST',
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-    },
-    body: JSON.stringify({ email, password }),
+
+  const { data: createdUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
   })
-  if (!signup.ok || !signup.body?.user?.id) throw new Error(`signup failed: ${signup.status}`)
-  const authUserId = signup.body.user.id
-  const accessToken = signup.body.session?.access_token ?? null
+  if (createError || !createdUser.user?.id) throw new Error(`auth user creation failed: ${createError?.message ?? 'unknown'}`)
+  const authUserId = createdUser.user.id
   created.authUsers.push({ id: authUserId, email })
+
+  const { data: sessionData, error: loginError } = await supabaseAuth.auth.signInWithPassword({ email, password })
+  if (loginError || !sessionData.session?.access_token) {
+    throw new Error(`auth login failed: ${loginError?.message ?? 'missing session'}`)
+  }
+  const accessToken = sessionData.session.access_token
 
   const member = await appJson('/api/members', {
     method: 'POST',
     headers: {
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ name: displayName, auth_user_id: authUserId }),
   })
