@@ -19,6 +19,7 @@ type RpcError = {
 
 const CLOSED_MESSAGE = '定員に達したため締め切りました。参加枠が閾値未満になるまで追加申請できません'
 const NOT_ACCEPTING_MESSAGE = '現在は参加申請を受け付けていません'
+const DEADLINE_MESSAGE = '締切日時を過ぎたため参加申請を受け付けていません'
 
 function shouldFallbackToLegacyJoin(error: RpcError): boolean {
   return error.code === 'PGRST202' || Boolean(error.message?.includes('join_event'))
@@ -79,6 +80,13 @@ async function legacyJoin(eventId: string, name: string, memberId: string | null
   const current = activeCount ?? 0
   const userCode = guest ? `guest:${memberId}:${temporaryCode}` : temporaryCode
   const participantMemberId = guest ? null : memberId
+
+  if (event.closes_at && new Date(event.closes_at).getTime() <= Date.now()) {
+    if (event.status === 'accepting') {
+      await supabase.from('events').update({ status: 'closed' }).eq('id', eventId)
+    }
+    return NextResponse.json({ error: DEADLINE_MESSAGE }, { status: 409 })
+  }
 
   if (event.status !== 'accepting') {
     return NextResponse.json({ error: NOT_ACCEPTING_MESSAGE }, { status: 409 })

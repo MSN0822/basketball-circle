@@ -204,6 +204,7 @@ async function getParticipants(eventId) {
 let mainEvent
 let capacityEvent
 let concurrencyEvent
+let deadlineEvent
 let memberA
 let memberB
 
@@ -452,6 +453,48 @@ await record('E-06', 'Concurrent duplicate member joins do not create duplicate 
     responseStatuses: responses.map(r => r.status),
     memberRows: memberRows.map(p => ({ id: p.id, status: p.status, slot: p.slot_number })),
     passed: memberRows.length === 1,
+  }
+})
+
+await record('E-07', 'Past close datetime closes event and rejects additional joins', async () => {
+  deadlineEvent = await createEvent('DEADLINE', {
+    max_participants: 5,
+    threshold: 5,
+    closes_at: new Date(Date.now() - 60 * 1000).toISOString(),
+    status: 'accepting',
+  })
+  const res = await join(deadlineEvent.id, `${runId} 締切後`, null)
+  const event = await getEvent(deadlineEvent.id)
+  const participants = await getParticipants(deadlineEvent.id)
+  return {
+    joinStatus: res.status,
+    eventStatus: event?.status,
+    participantStatuses: participants.map(p => ({ name: p.name, status: p.status, slot: p.slot_number })),
+    passed: res.status === 409 && event?.status === 'closed' && participants.filter(p => p.status !== 'cancelled').length === 0,
+  }
+})
+
+await record('E-08', 'Past close datetime prevents reopen after cancellation below threshold', async () => {
+  const reopenEvent = await createEvent('DEADLINE_REOPEN', { max_participants: 5, threshold: 5 })
+  const joined = await join(reopenEvent.id, `${runId} 締切前参加`, null)
+  const participant = joined.body?.participant
+  await appJson('/api/admin/events', {
+    method: 'PATCH',
+    headers: { 'x-admin-password': ADMIN_PASSWORD },
+    body: JSON.stringify({
+      id: reopenEvent.id,
+      status: 'closed',
+      closes_at: new Date(Date.now() - 60 * 1000).toISOString(),
+    }),
+  })
+  const cancelled = await cancel(participant.id, null, participant.user_code)
+  const event = await getEvent(reopenEvent.id)
+  const participants = await getParticipants(reopenEvent.id)
+  return {
+    cancelStatus: cancelled.status,
+    eventStatus: event?.status,
+    participantStatuses: participants.map(p => ({ name: p.name, status: p.status, slot: p.slot_number })),
+    passed: joined.ok && cancelled.ok && event?.status === 'closed' && participants.filter(p => p.status === 'active').length === 0,
   }
 })
 

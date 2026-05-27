@@ -75,6 +75,19 @@ begin
    where event_id = p_event_id
      and status = 'active';
 
+  if v_event.closes_at is not null and v_event.closes_at <= now() then
+    if v_event.status = 'accepting' then
+      update events
+         set status = 'closed'
+       where id = p_event_id;
+    end if;
+
+    return jsonb_build_object(
+      'error', '締切日時を過ぎたため参加申請を受け付けていません',
+      'status', 409
+    );
+  end if;
+
   if v_event.status <> 'accepting' then
     return jsonb_build_object(
       'error', '現在は参加申請を受け付けていません',

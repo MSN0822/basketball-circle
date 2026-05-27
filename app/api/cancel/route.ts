@@ -53,7 +53,7 @@ async function syncEventStatusAfterActiveCancel(eventId: string) {
   const [{ data: event }, { count: activeCount }] = await Promise.all([
     supabase
       .from('events')
-      .select('status, threshold, max_participants')
+      .select('status, threshold, max_participants, closes_at')
       .eq('id', eventId)
       .single<Event>(),
     supabase
@@ -66,8 +66,9 @@ async function syncEventStatusAfterActiveCancel(eventId: string) {
   if (!event || event.status === 'draft') return
 
   const active = activeCount ?? 0
+  const isPastDeadline = Boolean(event.closes_at && new Date(event.closes_at).getTime() <= Date.now())
   const nextStatus =
-    active >= event.max_participants
+    isPastDeadline || active >= event.max_participants
       ? 'closed'
       : active < event.threshold
         ? 'accepting'

@@ -61,7 +61,9 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
 
   const active = participants.filter(p => p.status === 'active')
   const isFull = active.length >= event.max_participants
-  const canJoin = event.status === 'accepting' && !isFull
+  const now = new Date().getTime()
+  const isPastDeadline = Boolean(event.closes_at && new Date(event.closes_at).getTime() <= now)
+  const canJoin = event.status === 'accepting' && !isFull && !isPastDeadline
 
   return (
     <main className="max-w-lg mx-auto px-4 py-8 space-y-6">
