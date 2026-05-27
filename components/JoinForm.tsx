@@ -156,6 +156,15 @@ export default function JoinForm({ event }: Props) {
   const canAddGuest = canJoin
   const canAddGuestInput = canAddGuest && guestNames.length < remainingSlots
   const isAddingGuest = typeof action === 'string' && action.startsWith('guest:')
+  const activeCountAfterSelfCancel = Math.max(
+    activeCount - (participation?.status === 'active' ? 1 : 0),
+    0
+  )
+  const shouldShowThresholdCancelWarning =
+    eventStatus === 'closed' && activeCountAfterSelfCancel >= event.threshold
+  const cancelConfirmDescription = shouldShowThresholdCancelWarning
+    ? `参加者数が${event.threshold}人を下回るまで追加の参加申請はできません。キャンセルしてもよろしいですか？`
+    : '参加をキャンセルしてもよろしいですか？'
 
   function updateGuestName(index: number, value: string) {
     setGuestNames(current => current.map((name, i) => i === index ? value : name))
@@ -358,8 +367,7 @@ export default function JoinForm({ event }: Props) {
           <DialogHeader>
             <DialogTitle>キャンセル確認</DialogTitle>
             <DialogDescription>
-              参加者数が{event.threshold}人を下回るまで追加の参加申請はできません。
-              キャンセルしてもよろしいですか？
+              {cancelConfirmDescription}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

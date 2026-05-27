@@ -67,11 +67,16 @@ async function syncEventStatusAfterActiveCancel(eventId: string) {
   if (!event || event.status === 'draft') return
 
   const active = activeCount ?? 0
+  const activeBeforeCancel = active + 1
   const isPastDeadline = Boolean(event.closes_at && new Date(event.closes_at).getTime() <= Date.now())
+  const shouldReopenAfterThresholdDrop =
+    event.status === 'closed' &&
+    active < event.threshold &&
+    activeBeforeCancel >= event.threshold
   const nextStatus =
     isPastDeadline || active >= event.max_participants
       ? 'closed'
-      : active < event.threshold
+      : shouldReopenAfterThresholdDrop
         ? 'accepting'
         : event.status
 
