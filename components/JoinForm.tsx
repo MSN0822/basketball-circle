@@ -156,10 +156,7 @@ export default function JoinForm({ event }: Props) {
   }
 
   function clearGuestInput(index: number) {
-    setGuestNames(current => {
-      if (current.length === 1) return ['']
-      return current.filter((_, i) => i !== index)
-    })
+    setGuestNames(current => current.filter((_, i) => i !== index))
   }
 
   async function handleJoin() {
