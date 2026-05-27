@@ -1,0 +1,30 @@
+{
+  "id": "A-04",
+  "name": "Create QA auth users and member records",
+  "status": "PASS",
+  "startedAt": "2026-05-27T08:25:23.351Z",
+  "finishedAt": "2026-05-27T08:25:26.558Z",
+  "detail": {
+    "members": [
+      {
+        "id": "4381717e-a9b3-4148-8a81-98a1ef67d122",
+        "name": "QA_KEEP_20260527082519 山田 太郎",
+        "email": "qa_keep_qa_keep_20260527082519_a@example.com",
+        "hasSession": true
+      },
+      {
+        "id": "1001dc9a-d0c7-472c-a6ea-bab83b6547bd",
+        "name": "QA_KEEP_20260527082519 佐藤 花子",
+        "email": "qa_keep_qa_keep_20260527082519_b@example.com",
+        "hasSession": true
+      },
+      {
+        "id": "6a4542a6-7cb1-4627-94a6-61b557b1f7f7",
+        "name": "QA_KEEP_20260527082519 鈴木 一郎",
+        "email": "qa_keep_qa_keep_20260527082519_c@example.com",
+        "hasSession": true
+      }
+    ],
+    "passed": true
+  }
+}

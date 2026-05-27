@@ -1,0 +1,18 @@
+{
+  "id": "G-05",
+  "name": "Anon direct events insert is blocked",
+  "status": "PASS",
+  "startedAt": "2026-05-27T08:26:03.825Z",
+  "finishedAt": "2026-05-27T08:26:03.870Z",
+  "detail": {
+    "status": 401,
+    "body": {
+      "code": "42501",
+      "details": null,
+      "hint": null,
+      "message": "new row violates row-level security policy for table \"events\""
+    },
+    "inserted": false,
+    "passed": true
+  }
+}

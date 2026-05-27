@@ -1,0 +1,18 @@
+{
+  "id": "G-03",
+  "name": "Anon direct participants insert is blocked",
+  "status": "PASS",
+  "startedAt": "2026-05-27T08:26:03.735Z",
+  "finishedAt": "2026-05-27T08:26:03.780Z",
+  "detail": {
+    "status": 401,
+    "body": {
+      "code": "42501",
+      "details": null,
+      "hint": null,
+      "message": "new row violates row-level security policy for table \"participants\""
+    },
+    "inserted": false,
+    "passed": true
+  }
+}

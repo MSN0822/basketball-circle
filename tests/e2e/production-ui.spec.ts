@@ -119,9 +119,10 @@ test.describe('production UI smoke', () => {
   })
 
   test('admin edit page shows start and end inputs', async ({ page }) => {
-    await page.goto('/admin')
-    await page.locator('input[type="password"]').fill(adminPassword)
-    await page.locator('button').first().click()
+    await page.goto('/login')
+    await page.evaluate(password => {
+      localStorage.setItem('basketball_admin_password', password)
+    }, adminPassword)
     await page.goto(`/admin/events/${eventId}/edit`)
     await expect(page.locator('input[type="date"]').first()).toBeVisible()
     await expect(page.locator('input[type="date"]').nth(1)).toBeVisible()
@@ -165,10 +166,11 @@ test.describe('production UI smoke', () => {
 
     await page.goto(`/events/${eventId}`)
     await expect(page).toHaveURL(new RegExp(`/events/${eventId}`))
-    await expect(page.locator('main button').first()).toBeVisible()
+    await expect(page.locator('main')).not.toContainText('ログインが必要です')
+    await expect(page.getByRole('button', { name: /参加申請/ })).toBeVisible()
     await screenshot(page, '08-authenticated-event-detail-before-join.png')
 
-    await page.locator('main button').first().click()
+    await page.getByRole('button', { name: /参加申請/ }).click()
     await expect(page.locator('main')).toContainText(/キャンセル|参加|待機|登録/)
     await screenshot(page, '09-authenticated-event-detail-after-join.png')
 

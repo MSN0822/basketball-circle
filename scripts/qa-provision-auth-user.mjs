@@ -47,6 +47,12 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
     persistSession: false,
   },
 })
+const authClient = createClient(supabaseUrl, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+})
 
 let authUserId = ''
 
@@ -64,6 +70,17 @@ if (!authUserId) {
   })
   if (error) throw error
   authUserId = data.user.id
+} else {
+  const { error } = await admin.auth.admin.updateUserById(authUserId, {
+    password,
+    email_confirm: true,
+  })
+  if (error) throw error
+}
+
+const { data: sessionData, error: loginError } = await authClient.auth.signInWithPassword({ email, password })
+if (loginError || !sessionData.session?.access_token) {
+  throw loginError ?? new Error('QA auth session was not created.')
 }
 
 const { data: existingMembers, error: selectError } = await admin
@@ -79,7 +96,10 @@ let memberId = existingMembers?.[0]?.id ?? ''
 if (!memberId) {
   const res = await fetch(`${baseUrl}/api/members`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${sessionData.session.access_token}`,
+    },
     body: JSON.stringify({ name: displayName, auth_user_id: authUserId }),
   })
   if (!res.ok) {

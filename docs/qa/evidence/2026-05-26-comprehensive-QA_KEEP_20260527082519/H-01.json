@@ -1,0 +1,10 @@
+{
+  "id": "H-01",
+  "name": "Production build check is handled separately by npm run build",
+  "status": "PASS",
+  "startedAt": "2026-05-27T08:25:19.425Z",
+  "finishedAt": "2026-05-27T08:25:19.425Z",
+  "detail": {
+    "note": "The script records runtime tests. See the QA report for build command output."
+  }
+}

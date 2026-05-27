@@ -1,0 +1,14 @@
+{
+  "id": "D-03",
+  "name": "Member can add up to three friends",
+  "status": "PASS",
+  "startedAt": "2026-05-27T08:25:31.293Z",
+  "finishedAt": "2026-05-27T08:25:33.235Z",
+  "detail": {
+    "statuses": [
+      200,
+      200
+    ],
+    "passed": true
+  }
+}
