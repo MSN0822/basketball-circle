@@ -1,0 +1,14 @@
+{
+  "id": "D-08",
+  "name": "Other member cannot cancel a friend they do not own",
+  "status": "PASS",
+  "startedAt": "2026-05-27T04:25:41.671Z",
+  "finishedAt": "2026-05-27T04:25:42.213Z",
+  "detail": {
+    "cancelStatus": 403,
+    "body": {
+      "error": "本人確認に失敗しました"
+    },
+    "passed": true
+  }
+}

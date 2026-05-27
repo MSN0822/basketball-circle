@@ -1,0 +1,14 @@
+{
+  "id": "G-02",
+  "name": "Anon direct members update is blocked",
+  "status": "PASS",
+  "startedAt": "2026-05-27T04:25:48.717Z",
+  "finishedAt": "2026-05-27T04:25:48.755Z",
+  "detail": {
+    "status": 200,
+    "rowsReturned": 0,
+    "before": "QA_KEEP_20260527042521 山田 太郎",
+    "after": "QA_KEEP_20260527042521 山田 太郎",
+    "passed": true
+  }
+}

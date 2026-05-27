@@ -1,0 +1,28 @@
+{
+  "id": "E-01/E-02",
+  "name": "Capacity closes event and overflow is rejected",
+  "status": "PASS",
+  "startedAt": "2026-05-27T04:25:30.783Z",
+  "finishedAt": "2026-05-27T04:25:32.826Z",
+  "detail": {
+    "statuses": [
+      200,
+      200,
+      409
+    ],
+    "participantStatuses": [
+      {
+        "name": "QA_KEEP_20260527042521 定員A",
+        "status": "active",
+        "slot": 1
+      },
+      {
+        "name": "QA_KEEP_20260527042521 定員B",
+        "status": "active",
+        "slot": 2
+      }
+    ],
+    "eventStatus": "closed",
+    "passed": true
+  }
+}

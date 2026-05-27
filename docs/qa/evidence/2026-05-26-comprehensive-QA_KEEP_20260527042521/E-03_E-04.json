@@ -1,0 +1,43 @@
+{
+  "id": "E-03/E-04",
+  "name": "Cancel active reopens only when below threshold without waitlist promotion",
+  "status": "PASS",
+  "startedAt": "2026-05-27T04:25:32.827Z",
+  "finishedAt": "2026-05-27T04:25:36.108Z",
+  "detail": {
+    "cancelStatus": 200,
+    "eventStatus": "accepting",
+    "refillStatus": 200,
+    "eventStatusAfterRefill": "closed",
+    "participantsAfter": [
+      {
+        "name": "QA_KEEP_20260527042521 定員A",
+        "status": "cancelled",
+        "slot": 1
+      },
+      {
+        "name": "QA_KEEP_20260527042521 定員B",
+        "status": "active",
+        "slot": 1
+      }
+    ],
+    "participantsAfterRefill": [
+      {
+        "name": "QA_KEEP_20260527042521 定員A",
+        "status": "cancelled",
+        "slot": 1
+      },
+      {
+        "name": "QA_KEEP_20260527042521 定員B",
+        "status": "active",
+        "slot": 1
+      },
+      {
+        "name": "QA_KEEP_20260527042521 再受付",
+        "status": "active",
+        "slot": 2
+      }
+    ],
+    "passed": true
+  }
+}

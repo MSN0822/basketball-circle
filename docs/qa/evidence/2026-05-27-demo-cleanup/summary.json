@@ -1,52 +1,45 @@
 {
-  "deletedCount": 8,
+  "deletedCount": 10,
   "deleted": [
     {
-      "id": "0fff443d-a961-4450-b058-475f5700654c",
-      "title": "QA_KEEP_20260527035813_DUPLICATE_CONCURRENCY",
+      "id": "6a2be11c-cbf6-454d-9306-bd26c254f5e8",
+      "title": "QA_KEEP_20260527042521_DEADLINE_REOPEN",
+      "status": "closed"
+    },
+    {
+      "id": "4aec5c28-a747-4091-b189-3893634663ca",
+      "title": "QA_KEEP_20260527042521_DEADLINE",
+      "status": "closed"
+    },
+    {
+      "id": "a0b99970-1f33-4bfe-8b72-9a6dae6dabd5",
+      "title": "QA_KEEP_20260527042521_DUPLICATE_CONCURRENCY",
       "status": "accepting"
     },
     {
-      "id": "eae9fb29-3b41-4855-81c6-4ddcff985262",
-      "title": "QA_KEEP_20260527035813_CONCURRENCY",
+      "id": "5974d24d-2ccd-4d50-9395-12d7ef056df0",
+      "title": "QA_KEEP_20260527042521_CONCURRENCY",
       "status": "closed"
     },
     {
-      "id": "a8def117-0a6a-4183-aece-1ff91914b3d8",
-      "title": "QA_KEEP_20260527035813_CAPACITY",
+      "id": "b0d9c32e-d44b-418d-8b2c-3e09ac84059c",
+      "title": "QA_KEEP_20260527042521_CAPACITY",
       "status": "closed"
     },
     {
-      "id": "d2567398-2e31-4840-9a0b-8e4176deae71",
-      "title": "QA_KEEP_20260527035813_DRAFT",
+      "id": "58d53664-dddc-48ac-8bb8-45494eb7e43f",
+      "title": "QA_KEEP_20260527042521_DRAFT",
       "status": "draft"
     },
     {
-      "id": "6719bb15-3a19-44c3-bd46-f218c30d81c8",
-      "title": "QA_KEEP_20260527035813_MAIN_PATCHED",
+      "id": "7a913854-54b1-444a-9b6e-84f2b6799dc1",
+      "title": "QA_KEEP_20260527042521_MAIN_PATCHED",
       "status": "accepting"
     },
     {
-      "id": "f767dcbe-5952-420a-999f-f8ddaa6c6157",
+      "id": "ff0c26cd-873a-42fc-bf9f-789d5572d22b",
       "title": "【運営確認用】 下書きイベント",
       "status": "draft"
-    },
-    {
-      "id": "edd6aacf-e0c4-4f11-a952-d28df9e41b22",
-      "title": "【運営確認用】 満員・キャンセル待ち例",
-      "status": "closed"
-    },
-    {
-      "id": "aceff598-0ecb-4d5f-9a37-150e57c354bd",
-      "title": "【運営確認用】 受付中バスケ体験会",
-      "status": "accepting"
-    }
-  ],
-  "created": [
-    {
-      "id": "e3bb5a81-9867-4099-bb7e-7ca1022bb6ca",
-      "title": "【運営確認用】 受付中バスケ体験会",
-      "status": "accepting"
     },
     {
       "id": "3cc92b90-9a8c-458a-90da-115fa3c570db",
@@ -54,7 +47,24 @@
       "status": "closed"
     },
     {
-      "id": "ff0c26cd-873a-42fc-bf9f-789d5572d22b",
+      "id": "e3bb5a81-9867-4099-bb7e-7ca1022bb6ca",
+      "title": "【運営確認用】 受付中バスケ体験会",
+      "status": "accepting"
+    }
+  ],
+  "created": [
+    {
+      "id": "e5422dca-bdb9-49af-93ca-e22295be5dc0",
+      "title": "【運営確認用】 受付中バスケ体験会",
+      "status": "accepting"
+    },
+    {
+      "id": "882418bb-70f9-4cc2-ae10-5554dfc45a77",
+      "title": "【運営確認用】 満員・締切例",
+      "status": "closed"
+    },
+    {
+      "id": "228aad77-ee6a-4b00-affd-eb556ef6b5d5",
       "title": "【運営確認用】 下書きイベント",
       "status": "draft"
     }
@@ -62,17 +72,17 @@
   "remainingDemoOrTestCount": 3,
   "remainingDemoOrTest": [
     {
-      "id": "ff0c26cd-873a-42fc-bf9f-789d5572d22b",
+      "id": "228aad77-ee6a-4b00-affd-eb556ef6b5d5",
       "title": "【運営確認用】 下書きイベント",
       "status": "draft"
     },
     {
-      "id": "3cc92b90-9a8c-458a-90da-115fa3c570db",
+      "id": "882418bb-70f9-4cc2-ae10-5554dfc45a77",
       "title": "【運営確認用】 満員・締切例",
       "status": "closed"
     },
     {
-      "id": "e3bb5a81-9867-4099-bb7e-7ca1022bb6ca",
+      "id": "e5422dca-bdb9-49af-93ca-e22295be5dc0",
       "title": "【運営確認用】 受付中バスケ体験会",
       "status": "accepting"
     }

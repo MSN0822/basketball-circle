@@ -1,0 +1,12 @@
+{
+  "id": "A-01",
+  "name": "Unauthenticated top page redirects to login",
+  "status": "PASS",
+  "startedAt": "2026-05-27T04:25:21.032Z",
+  "finishedAt": "2026-05-27T04:25:21.192Z",
+  "detail": {
+    "status": 307,
+    "location": "/login",
+    "passed": true
+  }
+}

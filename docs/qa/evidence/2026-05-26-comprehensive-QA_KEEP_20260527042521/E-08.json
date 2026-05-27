@@ -1,0 +1,19 @@
+{
+  "id": "E-08",
+  "name": "Past close datetime prevents reopen after cancellation below threshold",
+  "status": "PASS",
+  "startedAt": "2026-05-27T04:25:45.877Z",
+  "finishedAt": "2026-05-27T04:25:48.620Z",
+  "detail": {
+    "cancelStatus": 200,
+    "eventStatus": "closed",
+    "participantStatuses": [
+      {
+        "name": "QA_KEEP_20260527042521 締切前参加",
+        "status": "cancelled",
+        "slot": 1
+      }
+    ],
+    "passed": true
+  }
+}

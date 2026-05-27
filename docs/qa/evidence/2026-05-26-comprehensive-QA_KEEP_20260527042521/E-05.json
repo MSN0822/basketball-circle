@@ -1,0 +1,25 @@
+{
+  "id": "E-05",
+  "name": "Concurrent joins into capacity-one event keep exactly one active",
+  "status": "PASS",
+  "startedAt": "2026-05-27T04:25:42.213Z",
+  "finishedAt": "2026-05-27T04:25:43.808Z",
+  "detail": {
+    "responseStatuses": [
+      200,
+      409,
+      409,
+      409,
+      409
+    ],
+    "participantStatuses": [
+      {
+        "name": "QA_KEEP_20260527042521 同時1",
+        "status": "active",
+        "slot": 1
+      }
+    ],
+    "eventStatus": "closed",
+    "passed": true
+  }
+}
