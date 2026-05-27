@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Plus, X } from 'lucide-react'
-import { Event, Member, Participant } from '@/lib/supabase'
+import { Event, EventStatus, Member, Participant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -62,6 +62,7 @@ export default function JoinForm({ event }: Props) {
   const [guestNames, setGuestNames] = useState([''])
   const [activeCount, setActiveCount] = useState(0)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [eventStatus, setEventStatus] = useState<EventStatus>(event.status)
 
   const loadParticipation = useCallback(async (memberId: string) => {
     const { data } = await supabase
@@ -134,8 +135,25 @@ export default function JoinForm({ event }: Props) {
     return () => { supabase.removeChannel(channel) }
   }, [event.id, member, reloadMine])
 
+  useEffect(() => {
+    const channel = supabase
+      .channel(`join-form-event:${event.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${event.id}` },
+        payload => {
+          const next = payload.new as Partial<Event>
+          if (next.status) setEventStatus(next.status)
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [event.id])
+
   const remainingSlots = Math.max(event.max_participants - activeCount, 0)
-  const canAddGuest = event.status === 'accepting' && remainingSlots > 0
+  const canJoin = eventStatus === 'accepting' && remainingSlots > 0
+  const canAddGuest = canJoin
   const canAddGuestInput = canAddGuest && guestNames.length < remainingSlots
   const isAddingGuest = typeof action === 'string' && action.startsWith('guest:')
 
@@ -161,6 +179,12 @@ export default function JoinForm({ event }: Props) {
 
   async function handleJoin() {
     if (!member) return
+    if (!canJoin) {
+      setError('現在は参加申請を受け付けていません')
+      await reloadMine(member.id)
+      return
+    }
+
     setAction('join')
     setError('')
     setMessage('')
@@ -318,9 +342,15 @@ export default function JoinForm({ event }: Props) {
           {action === 'cancel' ? '処理中...' : 'キャンセル'}
         </Button>
       ) : (
-        <Button onClick={handleJoin} disabled={action === 'join'} className="w-full">
+        <Button onClick={handleJoin} disabled={!canJoin || action === 'join'} className="w-full">
           {action === 'join' ? '処理中...' : '参加申請する'}
         </Button>
+      )}
+
+      {!participation && !canJoin && (
+        <p className="text-sm text-muted-foreground">
+          現在は参加申請を受け付けていません。参加済みの友達がいる場合は、この画面からキャンセルできます。
+        </p>
       )}
 
       <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>

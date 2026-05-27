@@ -58,6 +58,7 @@ create policy "participants_delete_none" on participants for delete using (false
 
 -- Realtimeパブリケーション
 alter publication supabase_realtime add table participants;
+alter publication supabase_realtime add table events;
 
 -- インデックス
 create index on events(event_date);

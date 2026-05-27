@@ -63,7 +63,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   const isFull = active.length >= event.max_participants
   const now = new Date().getTime()
   const isPastDeadline = Boolean(event.closes_at && new Date(event.closes_at).getTime() <= now)
-  const canJoin = event.status === 'accepting' && !isFull && !isPastDeadline
+  const isClosed = event.status !== 'accepting' || isFull || isPastDeadline
 
   return (
     <main className="max-w-lg mx-auto px-4 py-8 space-y-6">
@@ -77,8 +77,8 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold">{event.title}</h1>
-          <Badge variant={event.status === 'accepting' ? 'default' : 'secondary'}>
-            {event.status === 'accepting' ? '申請受付中' : '締め切り済み'}
+          <Badge variant={isClosed ? 'secondary' : 'default'}>
+            {isClosed ? '締め切り済み' : '申請受付中'}
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground">{formatDateRange(event.event_date, event.event_end_date)}</p>
@@ -99,7 +99,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       <Separator />
 
       {/* 参加申請フォーム */}
-      {canJoin && (
+      {event.status !== 'draft' && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
