@@ -75,7 +75,7 @@
         {
           "title": "production UI smoke",
           "file": "production-ui.spec.ts",
-          "line": 48,
+          "line": 54,
           "column": 6,
           "specs": [
             {
@@ -94,12 +94,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 470,
+                      "duration": 554,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-26T14:35:33.545Z",
+                      "startTime": "2026-05-27T03:13:25.363Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -109,7 +109,7 @@
               ],
               "id": "e57c8ecaabb28c66ee01-9c57e6e436ef947bb3fc",
               "file": "production-ui.spec.ts",
-              "line": 84,
+              "line": 94,
               "column": 7
             },
             {
@@ -128,12 +128,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 459,
+                      "duration": 480,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-26T14:35:35.370Z",
+                      "startTime": "2026-05-27T03:13:27.499Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -143,7 +143,7 @@
               ],
               "id": "e57c8ecaabb28c66ee01-3a1007678dcee3daf07e",
               "file": "production-ui.spec.ts",
-              "line": 97,
+              "line": 107,
               "column": 7
             },
             {
@@ -162,12 +162,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1311,
+                      "duration": 1376,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-26T14:35:35.835Z",
+                      "startTime": "2026-05-27T03:13:27.984Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -177,7 +177,7 @@
               ],
               "id": "e57c8ecaabb28c66ee01-c7158be39a21695030a5",
               "file": "production-ui.spec.ts",
-              "line": 103,
+              "line": 113,
               "column": 7
             },
             {
@@ -196,12 +196,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 978,
+                      "duration": 994,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-26T14:35:37.151Z",
+                      "startTime": "2026-05-27T03:13:29.366Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -211,7 +211,7 @@
               ],
               "id": "e57c8ecaabb28c66ee01-434be0394d28b96e2c88",
               "file": "production-ui.spec.ts",
-              "line": 111,
+              "line": 121,
               "column": 7
             },
             {
@@ -230,12 +230,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 651,
+                      "duration": 811,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-26T14:35:38.135Z",
+                      "startTime": "2026-05-27T03:13:30.367Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -245,7 +245,7 @@
               ],
               "id": "e57c8ecaabb28c66ee01-c605a884a729ecae0b01",
               "file": "production-ui.spec.ts",
-              "line": 123,
+              "line": 133,
               "column": 7
             },
             {
@@ -264,12 +264,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 486,
+                      "duration": 494,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-26T14:35:38.792Z",
+                      "startTime": "2026-05-27T03:13:31.184Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -279,7 +279,61 @@
               ],
               "id": "e57c8ecaabb28c66ee01-6f92071a96f48be3116d",
               "file": "production-ui.spec.ts",
-              "line": 139,
+              "line": 149,
+              "column": 7
+            },
+            {
+              "title": "authenticated participant can open event detail and capture join UI",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD for authenticated participant UI coverage.",
+                      "location": {
+                        "file": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\tests\\e2e\\production-ui.spec.ts",
+                        "line": 158,
+                        "column": 10
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 112,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-27T03:13:31.684Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD for authenticated participant UI coverage.",
+                          "location": {
+                            "file": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\tests\\e2e\\production-ui.spec.ts",
+                            "line": 158,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e57c8ecaabb28c66ee01-8ce16a600425abc28785",
+              "file": "production-ui.spec.ts",
+              "line": 157,
               "column": 7
             }
           ]
@@ -289,10 +343,10 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-05-26T14:35:33.218Z",
-    "duration": 6109.164,
+    "startTime": "2026-05-27T03:13:24.975Z",
+    "duration": 6905.798,
     "expected": 6,
-    "skipped": 0,
+    "skipped": 1,
     "unexpected": 0,
     "flaky": 0
   }

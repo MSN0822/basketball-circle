@@ -3,7 +3,13 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 
 const runId = `QA_KEEP_UI_${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
-const evidenceDir = path.join(process.cwd(), 'docs', 'qa', 'evidence', `2026-05-26-playwright-${runId}`)
+const tokyoDate = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Asia/Tokyo',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}).format(new Date())
+const evidenceDir = path.join(process.cwd(), 'docs', 'qa', 'evidence', `${tokyoDate}-playwright-${runId}`)
 
 type LocalEnv = Record<string, string>
 
@@ -48,12 +54,16 @@ test.describe.configure({ mode: 'serial' })
 test.describe('production UI smoke', () => {
   let baseURL = 'https://basketball-circle.vercel.app'
   let adminPassword = ''
+  let qaAuthEmail = ''
+  let qaAuthPassword = ''
   let eventId = ''
   let eventTitle = ''
 
   test.beforeAll(async () => {
     const env = await readLocalEnv()
     adminPassword = env.ADMIN_PASSWORD
+    qaAuthEmail = process.env.QA_AUTH_EMAIL ?? env.QA_AUTH_EMAIL ?? ''
+    qaAuthPassword = process.env.QA_AUTH_PASSWORD ?? env.QA_AUTH_PASSWORD ?? ''
     baseURL = process.env.QA_BASE_URL ?? baseURL
 
     const start = new Date(Date.now() + 9 * 24 * 60 * 60 * 1000)
@@ -142,5 +152,24 @@ test.describe('production UI smoke', () => {
 
     const detailHtml = await fetch(`${baseURL}/events/${eventId}`, { redirect: 'manual' })
     expect([307, 308]).toContain(detailHtml.status)
+  })
+
+  test('authenticated participant can open event detail and capture join UI', async ({ page }) => {
+    test.skip(!qaAuthEmail || !qaAuthPassword, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD for authenticated participant UI coverage.')
+
+    await page.goto('/login')
+    await page.locator('input[type="email"]').fill(qaAuthEmail)
+    await page.locator('input[type="password"]').fill(qaAuthPassword)
+    await page.locator('button').last().click()
+    await page.waitForURL(url => !url.pathname.includes('/login'), { timeout: 15_000 })
+
+    await page.goto(`/events/${eventId}`)
+    await expect(page).toHaveURL(new RegExp(`/events/${eventId}`))
+    await expect(page.locator('main button').first()).toBeVisible()
+    await screenshot(page, '08-authenticated-event-detail-before-join.png')
+
+    await page.locator('main button').first().click()
+    await expect(page.locator('main')).toContainText(/キャンセル|参加|待機|登録/)
+    await screenshot(page, '09-authenticated-event-detail-after-join.png')
   })
 })
