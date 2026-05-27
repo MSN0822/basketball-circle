@@ -94,12 +94,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 554,
+                      "duration": 4377,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-27T03:13:25.363Z",
+                      "startTime": "2026-05-27T03:26:43.142Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -128,12 +128,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 480,
+                      "duration": 483,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-27T03:13:27.499Z",
+                      "startTime": "2026-05-27T03:26:49.305Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -162,12 +162,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1376,
+                      "duration": 1929,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-27T03:13:27.984Z",
+                      "startTime": "2026-05-27T03:26:49.794Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -196,12 +196,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 994,
+                      "duration": 1636,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-27T03:13:29.366Z",
+                      "startTime": "2026-05-27T03:26:51.729Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -230,12 +230,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 811,
+                      "duration": 1165,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-27T03:13:30.367Z",
+                      "startTime": "2026-05-27T03:26:53.371Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -264,12 +264,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 494,
+                      "duration": 481,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-27T03:13:31.184Z",
+                      "startTime": "2026-05-27T03:26:54.541Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -289,46 +289,26 @@
               "tests": [
                 {
                   "timeout": 60000,
-                  "annotations": [
-                    {
-                      "type": "skip",
-                      "description": "Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD for authenticated participant UI coverage.",
-                      "location": {
-                        "file": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\tests\\e2e\\production-ui.spec.ts",
-                        "line": 158,
-                        "column": 10
-                      }
-                    }
-                  ],
-                  "expectedStatus": "skipped",
+                  "annotations": [],
+                  "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
                   "results": [
                     {
                       "workerIndex": 0,
                       "parallelIndex": 0,
-                      "status": "skipped",
-                      "duration": 112,
+                      "status": "passed",
+                      "duration": 4499,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-27T03:13:31.684Z",
-                      "annotations": [
-                        {
-                          "type": "skip",
-                          "description": "Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD for authenticated participant UI coverage.",
-                          "location": {
-                            "file": "C:\\ClaudeCode\\90_projects\\03_basketball-circle\\tests\\e2e\\production-ui.spec.ts",
-                            "line": 158,
-                            "column": 10
-                          }
-                        }
-                      ],
+                      "startTime": "2026-05-27T03:26:55.027Z",
+                      "annotations": [],
                       "attachments": []
                     }
                   ],
-                  "status": "skipped"
+                  "status": "expected"
                 }
               ],
               "id": "e57c8ecaabb28c66ee01-8ce16a600425abc28785",
@@ -343,10 +323,10 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-05-27T03:13:24.975Z",
-    "duration": 6905.798,
-    "expected": 6,
-    "skipped": 1,
+    "startTime": "2026-05-27T03:26:42.850Z",
+    "duration": 16748.877,
+    "expected": 7,
+    "skipped": 0,
     "unexpected": 0,
     "flaky": 0
   }
