@@ -144,12 +144,18 @@ export default function AdminPage() {
 
   async function adminCancel(participantId: string, eventId: string, name: string) {
     if (!confirm(`「${name}」を強制キャンセルしますか？`)) return
-    await fetch('/api/cancel', {
+    const res = await fetch('/api/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ participant_id: participantId, user_code: password, admin: true }),
     })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert(`キャンセルに失敗しました: ${data.error ?? res.status}`)
+      return
+    }
     await loadParticipants(eventId)
+    loadEvents()
   }
 
   if (!authed) {
