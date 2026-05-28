@@ -46,6 +46,9 @@ export default function AdminPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
   const [participantsMap, setParticipantsMap] = useState<Record<string, Participant[]>>({})
+  const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => Promise<void> } | null>(null)
+  const [confirmLoading, setConfirmLoading] = useState(false)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   const loadEvents = useCallback(async () => {
     const { data } = await supabase
@@ -77,6 +80,15 @@ export default function AdminPage() {
     }
   }, [verifyAndLoad])
 
+  function showConfirm(message: string, onConfirm: () => Promise<void>) {
+    setConfirmState({ message, onConfirm })
+  }
+
+  function showToast(msg: string) {
+    setToastMessage(msg)
+    setTimeout(() => setToastMessage(null), 4000)
+  }
+
   function handleLogout() {
     localStorage.removeItem(ADMIN_KEY)
     setAuthed(false)
@@ -101,14 +113,15 @@ export default function AdminPage() {
     loadEvents()
   }
 
-  async function handleDelete(event: Event) {
-    if (!confirm(`「${event.title}」を削除しますか？参加者データも全て削除されます。`)) return
-    await fetch('/api/admin/events', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
-      body: JSON.stringify({ id: event.id }),
+  function handleDelete(event: Event) {
+    showConfirm(`「${event.title}」を削除しますか？参加者データも全て削除されます。`, async () => {
+      await fetch('/api/admin/events', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
+        body: JSON.stringify({ id: event.id }),
+      })
+      loadEvents()
     })
-    loadEvents()
   }
 
   async function toggleStatus(event: Event) {
@@ -142,20 +155,21 @@ export default function AdminPage() {
     setParticipantsMap(prev => ({ ...prev, [eventId]: data ?? [] }))
   }
 
-  async function adminCancel(participantId: string, eventId: string, name: string) {
-    if (!confirm(`「${name}」を強制キャンセルしますか？`)) return
-    const res = await fetch('/api/cancel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ participant_id: participantId, user_code: password, admin: true }),
+  function adminCancel(participantId: string, eventId: string, name: string) {
+    showConfirm(`「${name}」を強制キャンセルしますか？`, async () => {
+      const res = await fetch('/api/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participant_id: participantId, user_code: password, admin: true }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        showToast(`キャンセルに失敗しました: ${data.error ?? res.status}`)
+        return
+      }
+      await loadParticipants(eventId)
+      loadEvents()
     })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      alert(`キャンセルに失敗しました: ${data.error ?? res.status}`)
-      return
-    }
-    await loadParticipants(eventId)
-    loadEvents()
   }
 
   if (!authed) {
@@ -348,6 +362,40 @@ export default function AdminPage() {
           )
         })}
       </div>
+
+      {/* 確認ダイアログ（LINE内蔵ブラウザでconfirm()が動かないためカスタム実装） */}
+      {confirmState && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-sm space-y-4 shadow-xl">
+            <p className="text-sm whitespace-pre-wrap">{confirmState.message}</p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" disabled={confirmLoading} onClick={() => setConfirmState(null)}>
+                キャンセル
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={confirmLoading}
+                onClick={async () => {
+                  setConfirmLoading(true)
+                  await confirmState.onConfirm()
+                  setConfirmLoading(false)
+                  setConfirmState(null)
+                }}
+              >
+                {confirmLoading ? '処理中...' : '実行'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* エラートースト */}
+      {toastMessage && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-destructive text-destructive-foreground text-sm px-4 py-2 rounded-lg shadow-lg z-50 max-w-sm text-center">
+          {toastMessage}
+        </div>
+      )}
     </main>
   )
 }

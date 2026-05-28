@@ -82,7 +82,8 @@ async function syncEventStatusAfterActiveCancel(eventId: string) {
     activeBeforeCancel >= event.threshold
 
   if (shouldReopen) {
-    const patch: Record<string, unknown> = { status: 'accepting' }
+    // 再開時は上限を閾値に設定（元の max_participants には戻さない）
+    const patch: Record<string, unknown> = { status: 'accepting', max_participants: event.threshold }
     // 締切日時が過去の場合はクリア（再開後に即再締切されないよう）
     const isPastDeadline = Boolean(event.closes_at && new Date(event.closes_at).getTime() <= Date.now())
     if (isPastDeadline) patch.closes_at = null
