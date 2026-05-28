@@ -229,7 +229,7 @@ export default function AdminEventDetailPage() {
           className="text-destructive hover:bg-destructive hover:text-white ml-auto"
           onClick={handleDelete}
         >
-          削除
+          イベント削除
         </Button>
       </div>
 
