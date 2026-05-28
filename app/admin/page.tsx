@@ -200,19 +200,7 @@ export default function AdminPage() {
                 <CardDescription>
                   {formatEventDateRange(event.event_date, event.event_end_date)}
                 </CardDescription>
-                {event.location_url ? (
-                  <a
-                    href={event.location_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    📍 {event.location}
-                  </a>
-                ) : (
-                  <p className="text-sm text-muted-foreground">📍 {event.location}</p>
-                )}
+                <p className="text-sm text-muted-foreground">📍 {event.location}</p>
               </CardHeader>
             </Card>
           </div>
