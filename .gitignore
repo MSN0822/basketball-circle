@@ -9,3 +9,8 @@ out/
 next-env.d.ts
 .DS_Store
 test-results/
+
+.vercel
+.next-start*.log
+.next-start*.err
+.next-start*.pid
