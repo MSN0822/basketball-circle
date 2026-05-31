@@ -11,6 +11,7 @@ create table events (
   max_participants int not null default 35,
   threshold        int not null default 30,
   status           text not null default 'accepting' check (status in ('accepting', 'closed', 'draft')),
+  is_manual_close  boolean not null default false,
   created_at       timestamptz not null default now()
 );
 

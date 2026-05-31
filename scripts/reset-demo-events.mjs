@@ -86,6 +86,8 @@ const DEMO_EVENTS = [
   },
 ]
 
+const DEMO_EVENT_TITLES = DEMO_EVENTS.map(event => event.title)
+
 // ------- 参加者名リスト（35名分） -------
 const ALL_NAMES = [
   '佐藤 太郎', '鈴木 花子', '山田 一郎', '田中 次郎', '伊藤 三郎',
@@ -135,9 +137,12 @@ async function insertParticipants(eventId, names, includeGuest = false) {
 async function main() {
   console.log('=== デモイベントリセット ===\n')
 
-  // 1. 既存イベントを全削除
-  console.log('① 既存イベント・参加者を削除中...')
-  const { data: existing, error: fetchErr } = await supabase.from('events').select('id')
+  // 1. 既存のデモイベントだけ削除
+  console.log('① 既存のデモイベント・参加者を削除中...')
+  const { data: existing, error: fetchErr } = await supabase
+    .from('events')
+    .select('id')
+    .in('title', DEMO_EVENT_TITLES)
   if (fetchErr) throw fetchErr
 
   if (existing && existing.length > 0) {
@@ -155,9 +160,9 @@ async function main() {
       .in('id', ids)
     if (delEvents) throw delEvents
 
-    console.log(`  → ${ids.length}件のイベント（+ 参加者）を削除しました`)
+    console.log(`  → ${ids.length}件のデモイベント（+ 参加者）を削除しました`)
   } else {
-    console.log('  → 既存イベントはありませんでした')
+    console.log('  → 既存のデモイベントはありませんでした')
   }
 
   // 2. デモイベントを再作成

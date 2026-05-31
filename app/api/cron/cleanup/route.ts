@@ -6,8 +6,13 @@ import { getServerSupabase } from '@/lib/supabase-server'
  * 終了日時が過去のイベント（当日の日付が変わったもの）を自動削除する
  */
 export async function GET(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'Cron secret is not configured' }, { status: 500 })
+  }
+
   const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: '認証エラー' }, { status: 401 })
   }
 

@@ -86,7 +86,13 @@ export default function JoinForm({ event }: Props) {
       .like('user_code', `${guestPrefix(memberId)}%`)
       .order('created_at', { ascending: true })
 
-    setGuests((data as Participant[] | null) ?? [])
+    const fetchedGuests = (data as Participant[] | null) ?? []
+    setGuests(fetchedGuests)
+    setGuestNames(current => {
+      if (current.some(name => name.trim())) return current
+      if (fetchedGuests.length > 0) return []
+      return current.length === 0 ? [''] : current
+    })
   }, [event.id])
 
   const loadActiveCount = useCallback(async () => {
