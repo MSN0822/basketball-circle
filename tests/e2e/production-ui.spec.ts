@@ -220,7 +220,10 @@ test.describe('production UI smoke', () => {
     await screenshot(page, '09-authenticated-event-detail-after-join.png')
 
     await page.getByRole('button', { name: 'キャンセル' }).click()
-    await expect(page.getByRole('dialog')).toContainText(`参加者数が3人を下回るまで追加の参加申請はできません。`)
+    // テストイベントは max:4 / threshold:3 / accepting で作成され、参加者は本人1名のみ。
+    // 閾値割れ警告（参加者数が3人を下回るまで…）は eventStatus==='closed' のときのみ表示されるため、
+    // 受付中のこのイベントではシンプルな確認文言が正しい挙動。
+    await expect(page.getByRole('dialog')).toContainText('参加をキャンセルしてもよろしいですか？')
     await screenshot(page, '10-cancel-confirm-dialog.png')
 
     await page.getByRole('button', { name: 'キャンセルしない' }).click()
