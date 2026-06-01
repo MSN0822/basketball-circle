@@ -50,7 +50,7 @@ async function checkAdminSession(request: NextRequest): Promise<boolean> {
   return expectedSignature ? constantTimeEqual(signature, expectedSignature) : false
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (pathname.startsWith('/admin')) {
