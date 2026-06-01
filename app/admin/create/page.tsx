@@ -9,8 +9,6 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import PlacesInput from '@/components/PlacesInput'
 
-const ADMIN_KEY = 'basketball_admin_password'
-
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
 const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'))
 
@@ -55,7 +53,6 @@ function DateTimePicker({ value, onChange }: { value: string; onChange: (v: stri
 
 export default function AdminCreatePage() {
   const router = useRouter()
-  const [password, setPassword] = useState('')
   const [ready, setReady] = useState(false)
 
   const [title, setTitle] = useState('')
@@ -71,14 +68,14 @@ export default function AdminCreatePage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const saved = localStorage.getItem(ADMIN_KEY)
-    if (!saved) {
-      router.replace('/admin')
-      return
-    }
-    queueMicrotask(() => {
-      setPassword(saved)
+    fetch('/api/admin/verify').then(res => {
+      if (!res.ok) {
+        router.replace('/admin')
+        return
+      }
       setReady(true)
+    }).catch(() => {
+      router.replace('/admin')
     })
   }, [router])
 
@@ -100,7 +97,7 @@ export default function AdminCreatePage() {
 
     const res = await fetch('/api/admin/events', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title,
         event_date: eventStartIso,

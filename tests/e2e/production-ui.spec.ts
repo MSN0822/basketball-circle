@@ -49,11 +49,43 @@ async function appJson(baseURL: string, pathname: string, options: RequestInit =
   return { ok: res.ok, status: res.status, body }
 }
 
+// 管理者認証はクッキー方式（basketball_admin_session）。
+// lib/api-auth.ts の ADMIN_SESSION_COOKIE と一致させること。
+const ADMIN_SESSION_COOKIE = 'basketball_admin_session'
+
+// /api/admin/verify に POST して管理者セッションクッキーを取得する。
+// API リクエスト用の Cookie ヘッダー文字列と、ブラウザ注入用のトークン値を返す。
+async function loginAdmin(
+  baseURL: string,
+  password: string
+): Promise<{ cookieHeader: string; token: string }> {
+  const res = await fetch(`${baseURL}/api/admin/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  })
+  expect(res.status).toBe(200)
+
+  const setCookies =
+    typeof res.headers.getSetCookie === 'function'
+      ? res.headers.getSetCookie()
+      : (res.headers.get('set-cookie') ? [res.headers.get('set-cookie') as string] : [])
+
+  const sessionCookie = setCookies.find(c => c.startsWith(`${ADMIN_SESSION_COOKIE}=`))
+  expect(sessionCookie, 'admin session cookie should be set by /api/admin/verify').toBeTruthy()
+
+  const cookieHeader = (sessionCookie as string).split(';')[0] // "name=value"
+  const token = cookieHeader.slice(cookieHeader.indexOf('=') + 1)
+  return { cookieHeader, token }
+}
+
 test.describe.configure({ mode: 'serial' })
 
 test.describe('production UI smoke', () => {
   let baseURL = 'https://basketball-circle.vercel.app'
   let adminPassword = ''
+  let adminCookieHeader = ''
+  let adminToken = ''
   let qaAuthEmail = ''
   let qaAuthPassword = ''
   let eventId = ''
@@ -66,13 +98,18 @@ test.describe('production UI smoke', () => {
     qaAuthPassword = process.env.QA_AUTH_PASSWORD ?? env.QA_AUTH_PASSWORD ?? ''
     baseURL = process.env.QA_BASE_URL ?? baseURL
 
+    // クッキー方式の管理者セッションを取得（旧 x-admin-password ヘッダーは廃止）
+    const session = await loginAdmin(baseURL, adminPassword)
+    adminCookieHeader = session.cookieHeader
+    adminToken = session.token
+
     const start = new Date(Date.now() + 9 * 24 * 60 * 60 * 1000)
     const end = new Date(start.getTime() + 2 * 60 * 60 * 1000)
     eventTitle = `${runId}_UI_EVENT`
 
     const created = await appJson(baseURL, '/api/admin/events', {
       method: 'POST',
-      headers: { 'x-admin-password': adminPassword },
+      headers: { Cookie: adminCookieHeader },
       body: JSON.stringify({
         title: eventTitle,
         event_date: start.toISOString(),
@@ -90,6 +127,20 @@ test.describe('production UI smoke', () => {
     expect(body.event?.id).toBeTruthy()
     eventId = body.event!.id!
   })
+
+  // 管理者セッションクッキーをブラウザコンテキストへ注入する（localStorage 廃止）
+  async function injectAdminCookie(context: import('@playwright/test').BrowserContext) {
+    await context.addCookies([
+      {
+        name: ADMIN_SESSION_COOKIE,
+        value: adminToken,
+        url: baseURL,
+        httpOnly: true,
+        secure: baseURL.startsWith('https'),
+        sameSite: 'Strict',
+      },
+    ])
+  }
 
   test('login page and registration form can be captured', async ({ page }) => {
     await page.goto('/login')
@@ -118,11 +169,8 @@ test.describe('production UI smoke', () => {
     await screenshot(page, '04-admin-list.png')
   })
 
-  test('admin edit page shows start and end inputs', async ({ page }) => {
-    await page.goto('/login')
-    await page.evaluate(password => {
-      localStorage.setItem('basketball_admin_password', password)
-    }, adminPassword)
+  test('admin edit page shows start and end inputs', async ({ page, context }) => {
+    await injectAdminCookie(context)
     await page.goto(`/admin/events/${eventId}/edit`)
     await expect(page.locator('input[type="date"]').first()).toBeVisible()
     await expect(page.locator('input[type="date"]').nth(1)).toBeVisible()
@@ -131,11 +179,8 @@ test.describe('production UI smoke', () => {
     await screenshot(page, '05-admin-edit-start-end.png')
   })
 
-  test('admin create page shows start/end controls and required validation', async ({ page }) => {
-    await page.goto('/login')
-    await page.evaluate(password => {
-      localStorage.setItem('basketball_admin_password', password)
-    }, adminPassword)
+  test('admin create page shows start/end controls and required validation', async ({ page, context }) => {
+    await injectAdminCookie(context)
     await page.goto('/admin/create')
 
     await expect(page.locator('input[type="date"]').first()).toBeVisible()

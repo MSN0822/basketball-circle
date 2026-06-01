@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Event, EventStatus } from '@/lib/supabase'
+import { checkAdmin } from '@/lib/api-auth'
 import { getServerSupabase } from '@/lib/supabase-server'
 
 const supabase = getServerSupabase()
 const EVENT_STATUSES: EventStatus[] = ['accepting', 'closed', 'draft']
-
-function checkAdmin(req: NextRequest): boolean {
-  const password = req.headers.get('x-admin-password')
-  return Boolean(process.env.ADMIN_PASSWORD) && password === process.env.ADMIN_PASSWORD
-}
 
 function jsonError(error: string, status = 400) {
   return NextResponse.json({ error }, { status })

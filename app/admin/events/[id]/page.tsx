@@ -8,8 +8,6 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import Link from 'next/link'
 
-const ADMIN_KEY = 'basketball_admin_password'
-
 function formatEventDateRange(startStr: string, endStr: string | null): string {
   const start = new Date(startStr)
   const startText = start.toLocaleString('ja-JP', {
@@ -44,7 +42,6 @@ export default function AdminEventDetailPage() {
   const router = useRouter()
   const eventId = params.id as string
 
-  const [password, setPassword] = useState('')
   const [event, setEvent] = useState<Event | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
   const [loading, setLoading] = useState(true)
@@ -81,24 +78,16 @@ export default function AdminEventDetailPage() {
   }, [eventId])
 
   useEffect(() => {
-    const saved = localStorage.getItem(ADMIN_KEY)
-    if (!saved) {
-      router.replace('/admin')
-      return
-    }
     // パスワード検証
-    fetch('/api/admin/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: saved }),
-    }).then(res => {
+    fetch('/api/admin/verify').then(res => {
       if (!res.ok) {
         router.replace('/admin')
         return
       }
-      setPassword(saved)
       loadEvent()
       loadParticipants()
+    }).catch(() => {
+      router.replace('/admin')
     })
   }, [eventId, router, loadEvent, loadParticipants])
 
@@ -121,7 +110,7 @@ export default function AdminEventDetailPage() {
           : 'accepting'
     await fetch('/api/admin/events', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: event.id, status: newStatus }),
     })
     loadEvent()
@@ -134,7 +123,7 @@ export default function AdminEventDetailPage() {
       async () => {
         await fetch('/api/admin/events', {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: event.id }),
         })
         router.replace('/admin')
@@ -147,7 +136,7 @@ export default function AdminEventDetailPage() {
       const res = await fetch('/api/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ participant_id: participantId, user_code: password, admin: true }),
+        body: JSON.stringify({ participant_id: participantId, admin: true }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))

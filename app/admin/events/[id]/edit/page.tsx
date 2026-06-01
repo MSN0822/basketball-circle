@@ -10,8 +10,6 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import PlacesInput from '@/components/PlacesInput'
 
-const ADMIN_KEY = 'basketball_admin_password'
-
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
 const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'))
 
@@ -64,7 +62,6 @@ function DateTimePicker({ value, onChange }: { value: string; onChange: (v: stri
 export default function AdminEditPage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
-  const [password, setPassword] = useState('')
   const [ready, setReady] = useState(false)
 
   const [title, setTitle] = useState('')
@@ -80,27 +77,27 @@ export default function AdminEditPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const saved = localStorage.getItem(ADMIN_KEY)
-    if (!saved) {
-      router.replace('/admin')
-      return
-    }
-    queueMicrotask(() => {
-      setPassword(saved)
-    })
+    fetch('/api/admin/verify').then(res => {
+      if (!res.ok) {
+        router.replace('/admin')
+        return
+      }
 
-    supabase.from('events').select('*').eq('id', id).single().then(({ data }) => {
-      if (!data) { router.replace('/admin'); return }
-      setTitle(data.title)
-      setEventDate(toLocalDatetime(data.event_date))
-      setEventEndDate(toLocalDatetime(data.event_end_date ?? null))
-      setLocation(data.location)
-      setLocationUrl(data.location_url ?? '')
-      setClosesAt(toLocalDatetime(data.closes_at))
-      setPublishesAt(toLocalDatetime(data.publishes_at))
-      setMaxParticipants(String(data.max_participants))
-      setThreshold(String(data.threshold))
-      setReady(true)
+      supabase.from('events').select('*').eq('id', id).single().then(({ data }) => {
+        if (!data) { router.replace('/admin'); return }
+        setTitle(data.title)
+        setEventDate(toLocalDatetime(data.event_date))
+        setEventEndDate(toLocalDatetime(data.event_end_date ?? null))
+        setLocation(data.location)
+        setLocationUrl(data.location_url ?? '')
+        setClosesAt(toLocalDatetime(data.closes_at))
+        setPublishesAt(toLocalDatetime(data.publishes_at))
+        setMaxParticipants(String(data.max_participants))
+        setThreshold(String(data.threshold))
+        setReady(true)
+      })
+    }).catch(() => {
+      router.replace('/admin')
     })
   }, [id, router])
 
@@ -122,7 +119,7 @@ export default function AdminEditPage() {
 
     const res = await fetch('/api/admin/events', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id,
         title,

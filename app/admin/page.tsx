@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 
-const ADMIN_KEY = 'basketball_admin_password'
+const LEGACY_ADMIN_KEY = 'basketball_admin_password'
 
 function formatEventDateRange(startStr: string, endStr: string | null): string {
   const start = new Date(startStr)
@@ -56,33 +56,20 @@ export default function AdminPage() {
     if (data) setEvents(data)
   }, [])
 
-  const verifyAndLoad = useCallback(
-    async (pwd: string) => {
-      const res = await fetch('/api/admin/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pwd }),
-      })
-      if (res.ok) {
-        setAuthed(true)
-        loadEvents()
-      }
-    },
-    [loadEvents],
-  )
-
   useEffect(() => {
-    const saved = localStorage.getItem(ADMIN_KEY)
-    if (saved) {
-      queueMicrotask(() => {
-        setPassword(saved)
-        verifyAndLoad(saved)
+    localStorage.removeItem(LEGACY_ADMIN_KEY)
+    fetch('/api/admin/verify')
+      .then(res => {
+        if (res.ok) {
+          setAuthed(true)
+          loadEvents()
+        }
       })
-    }
-  }, [verifyAndLoad])
+      .catch(() => {})
+  }, [loadEvents])
 
-  function handleLogout() {
-    localStorage.removeItem(ADMIN_KEY)
+  async function handleLogout() {
+    await fetch('/api/admin/verify', { method: 'DELETE' })
     setAuthed(false)
     setPassword('')
     setEvents([])
@@ -99,8 +86,8 @@ export default function AdminPage() {
       setAuthError('パスワードが違います')
       return
     }
-    localStorage.setItem(ADMIN_KEY, password)
     setAuthed(true)
+    setPassword('')
     loadEvents()
   }
 

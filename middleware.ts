@@ -1,15 +1,73 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const ADMIN_SESSION_COOKIE = 'basketball_admin_session'
+
+function constantTimeEqual(a: string, b: string): boolean {
+  const maxLength = Math.max(a.length, b.length, 1)
+  let diff = a.length ^ b.length
+  for (let i = 0; i < maxLength; i++) {
+    diff |= a.charCodeAt(i % a.length) ^ b.charCodeAt(i % b.length)
+  }
+  return diff === 0
+}
+
+function toBase64Url(buffer: ArrayBuffer): string {
+  let binary = ''
+  for (const byte of new Uint8Array(buffer)) {
+    binary += String.fromCharCode(byte)
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+async function signAdminSessionPayload(payload: string): Promise<string | null> {
+  const secret = process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD
+  if (!secret) return null
+
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload))
+  return toBase64Url(signature)
+}
+
+async function checkAdminSession(request: NextRequest): Promise<boolean> {
+  const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value
+  if (!token) return false
+
+  const [expiresAtRaw, nonce, signature, ...extra] = token.split('.')
+  if (extra.length > 0 || !expiresAtRaw || !nonce || !signature) return false
+
+  const expiresAt = Number(expiresAtRaw)
+  if (!Number.isInteger(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000)) return false
+
+  const expectedSignature = await signAdminSessionPayload(`${expiresAtRaw}.${nonce}`)
+  return expectedSignature ? constantTimeEqual(signature, expectedSignature) : false
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  if (pathname.startsWith('/admin')) {
+    if (pathname === '/admin') {
+      return NextResponse.next()
+    }
+    if (!(await checkAdminSession(request))) {
+      return NextResponse.redirect(new URL('/admin', request.url))
+    }
+    return NextResponse.next()
+  }
 
   // 認証不要のルート
   if (
     pathname.startsWith('/login') ||
     pathname.startsWith('/register') ||
     pathname.startsWith('/api') ||
-    pathname.startsWith('/admin') ||
     pathname.startsWith('/_next') ||
     pathname === '/favicon.ico'
   ) {

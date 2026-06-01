@@ -17,7 +17,10 @@ LINEオープンチャットでの「コピー&ペースト方式」によるデ
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGci...
 ADMIN_PASSWORD=任意の管理者パスワード
+ADMIN_SESSION_SECRET=任意の長いランダム文字列
+CRON_SECRET=任意の長いランダム文字列
 ```
 
 ### 3. 開発サーバー起動
@@ -34,7 +37,9 @@ npm run dev
 npx vercel --prod
 ```
 
-Vercelダッシュボードの Environment Variables に同じ3つの変数を設定する。
+Vercelダッシュボードの Environment Variables に同じ変数を設定する。
+`SUPABASE_SERVICE_ROLE_KEY` はサーバー処理に必須です。未設定の場合、サーバー側 Supabase 操作は起動時に失敗します。
+`CRON_SECRET` は Vercel Cron から `/api/cron/cleanup` を呼び出すために必要です。Vercel の Environment Variables に必ず設定し、Cron 側は `Authorization: Bearer <CRON_SECRET>` を送る構成にしてください。
 
 ---
 

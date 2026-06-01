@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Member } from '@/lib/supabase'
-import { getAuthSupabase, getServerSupabase } from '@/lib/supabase-server'
+import { getBearerUser } from '@/lib/api-auth'
+import { getServerSupabase } from '@/lib/supabase-server'
 
 const supabase = getServerSupabase()
 
@@ -17,17 +18,6 @@ type RpcError = {
 
 function shouldFallbackToLegacyRegister(error: RpcError): boolean {
   return error.code === 'PGRST202' || Boolean(error.message?.includes('register_member'))
-}
-
-async function getBearerUser(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null
-  if (!token) return null
-
-  const authSupabase = getAuthSupabase()
-  const { data, error } = await authSupabase.auth.getUser(token)
-  if (error) return null
-  return data.user ?? null
 }
 
 async function legacyRegister(name: string, authUserId: string) {
@@ -60,7 +50,10 @@ export async function POST(req: NextRequest) {
   }
 
   const user = await getBearerUser(req)
-  if (user && user.id !== auth_user_id) {
+  if (!user) {
+    return NextResponse.json({ error: 'ログインが必要です' }, { status: 401 })
+  }
+  if (user.id !== auth_user_id) {
     return NextResponse.json({ error: '本人確認に失敗しました' }, { status: 403 })
   }
 
