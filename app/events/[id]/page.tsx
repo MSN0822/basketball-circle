@@ -1,9 +1,9 @@
 import { supabase, Event, Participant } from '@/lib/supabase'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ParticipantList from '@/components/ParticipantList'
 import JoinForm from '@/components/JoinForm'
+import EventStatusBadge from '@/components/EventStatusBadge'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -60,11 +60,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   if (!event) notFound()
 
   const active = participants.filter(p => p.status === 'active')
-  const isFull = active.length >= event.max_participants
-  const now = new Date().getTime()
-  const isPastDeadline = Boolean(event.closes_at && new Date(event.closes_at).getTime() <= now)
-  const isClosed = event.status !== 'accepting' || isFull || isPastDeadline
-
   return (
     <main className="max-w-lg mx-auto px-4 py-8 space-y-6">
       <div>
@@ -77,9 +72,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold">{event.title}</h1>
-          <Badge variant={isClosed ? 'secondary' : 'default'}>
-            {isClosed ? '締め切り済み' : '申請受付中'}
-          </Badge>
+          <EventStatusBadge event={event} initialActiveCount={active.length} />
         </div>
         <p className="text-sm text-muted-foreground">{formatDateRange(event.event_date, event.event_end_date)}</p>
         {event.location_url ? (

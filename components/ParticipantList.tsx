@@ -19,6 +19,7 @@ function getTemporaryGuestCode(participant: Participant) {
 
 export default function ParticipantList({ event, initialParticipants }: Props) {
   const [participants, setParticipants] = useState<Participant[]>(initialParticipants)
+  const [currentEvent, setCurrentEvent] = useState<Event>(event)
   const [member, setMember] = useState<Member | null>(null)
 
   useEffect(() => {
@@ -46,28 +47,60 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
     if (data) setParticipants(data)
   }, [event.id])
 
+  const reloadEvent = useCallback(async () => {
+    const { data } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', event.id)
+      .single<Event>()
+
+    if (data) setCurrentEvent(data)
+  }, [event.id])
+
   useEffect(() => {
     const channel = supabase
       .channel(`participants:${event.id}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'participants', filter: `event_id=eq.${event.id}` },
-        () => { reloadParticipants() }
+        () => {
+          reloadParticipants()
+          reloadEvent()
+        }
       )
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [event.id, reloadParticipants])
+  }, [event.id, reloadEvent, reloadParticipants])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`participant-list-event:${event.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${event.id}` },
+        payload => {
+          const next = payload.new as Partial<Event>
+          setCurrentEvent(current => ({ ...current, ...next }))
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [event.id])
 
   useEffect(() => {
     function handleParticipantsChanged(browserEvent: globalThis.Event) {
       const detail = (browserEvent as CustomEvent<{ eventId?: string }>).detail
-      if (!detail?.eventId || detail.eventId === event.id) reloadParticipants()
+      if (!detail?.eventId || detail.eventId === event.id) {
+        reloadParticipants()
+        reloadEvent()
+      }
     }
 
     window.addEventListener('participants-changed', handleParticipantsChanged)
     return () => { window.removeEventListener('participants-changed', handleParticipantsChanged) }
-  }, [event.id, reloadParticipants])
+  }, [event.id, reloadEvent, reloadParticipants])
 
   const active = participants.filter(p => p.status === 'active')
   const waitlist = participants.filter(p => p.status === 'waitlist')
@@ -93,8 +126,8 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <h2 className="font-semibold text-lg">参加者</h2>
-          <Badge variant={active.length >= event.max_participants ? 'destructive' : 'secondary'}>
-            {active.length} / {event.max_participants}
+          <Badge variant={active.length >= currentEvent.max_participants ? 'destructive' : 'secondary'}>
+            {active.length} / {currentEvent.max_participants}
           </Badge>
         </div>
         <div className="space-y-1">

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Plus, X } from 'lucide-react'
-import { Event, EventStatus, Member, Participant } from '@/lib/supabase'
+import { Event, Member, Participant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -59,10 +59,10 @@ export default function JoinForm({ event }: Props) {
   const [message, setMessage] = useState('')
   const [participation, setParticipation] = useState<Participant | null>(null)
   const [guests, setGuests] = useState<Participant[]>([])
-  const [guestNames, setGuestNames] = useState([''])
+  const [guestNames, setGuestNames] = useState<string[]>([])
   const [activeCount, setActiveCount] = useState(0)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
-  const [eventStatus, setEventStatus] = useState<EventStatus>(event.status)
+  const [currentEvent, setCurrentEvent] = useState<Event>(event)
 
   const loadParticipation = useCallback(async (memberId: string) => {
     const { data } = await supabase
@@ -91,8 +91,18 @@ export default function JoinForm({ event }: Props) {
     setGuestNames(current => {
       if (current.some(name => name.trim())) return current
       if (fetchedGuests.length > 0) return []
-      return current.length === 0 ? [''] : current
+      return current
     })
+  }, [event.id])
+
+  const loadEvent = useCallback(async () => {
+    const { data } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', event.id)
+      .single<Event>()
+
+    if (data) setCurrentEvent(data)
   }, [event.id])
 
   const loadActiveCount = useCallback(async () => {
@@ -106,8 +116,8 @@ export default function JoinForm({ event }: Props) {
   }, [event.id])
 
   const reloadMine = useCallback(async (memberId: string) => {
-    await Promise.all([loadParticipation(memberId), loadGuests(memberId), loadActiveCount()])
-  }, [loadActiveCount, loadGuests, loadParticipation])
+    await Promise.all([loadParticipation(memberId), loadGuests(memberId), loadActiveCount(), loadEvent()])
+  }, [loadActiveCount, loadEvent, loadGuests, loadParticipation])
 
   useEffect(() => {
     async function load() {
@@ -149,7 +159,7 @@ export default function JoinForm({ event }: Props) {
         { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${event.id}` },
         payload => {
           const next = payload.new as Partial<Event>
-          if (next.status) setEventStatus(next.status)
+          setCurrentEvent(current => ({ ...current, ...next }))
         }
       )
       .subscribe()
@@ -157,8 +167,8 @@ export default function JoinForm({ event }: Props) {
     return () => { supabase.removeChannel(channel) }
   }, [event.id])
 
-  const remainingSlots = Math.max(event.max_participants - activeCount, 0)
-  const canJoin = eventStatus === 'accepting' && remainingSlots > 0
+  const remainingSlots = Math.max(currentEvent.max_participants - activeCount, 0)
+  const canJoin = currentEvent.status === 'accepting' && remainingSlots > 0
   const canAddGuest = canJoin
   const canAddGuestInput = canAddGuest && guestNames.length < remainingSlots
   const isAddingGuest = typeof action === 'string' && action.startsWith('guest:')
@@ -167,9 +177,9 @@ export default function JoinForm({ event }: Props) {
     0
   )
   const shouldShowThresholdCancelWarning =
-    eventStatus === 'closed' && activeCountAfterSelfCancel >= event.threshold
+    currentEvent.status === 'closed' && activeCountAfterSelfCancel >= currentEvent.threshold
   const cancelConfirmDescription = shouldShowThresholdCancelWarning
-    ? `参加者数が${event.threshold}人を下回るまで追加の参加申請はできません。キャンセルしてもよろしいですか？`
+    ? `参加者数が${currentEvent.threshold}人を下回るまで追加の参加申請はできません。キャンセルしてもよろしいですか？`
     : '参加をキャンセルしてもよろしいですか？'
 
   function updateGuestName(index: number, value: string) {
@@ -183,7 +193,7 @@ export default function JoinForm({ event }: Props) {
 
   function removeGuestInput(index: number) {
     setGuestNames(current => {
-      if (current.length === 1) return ['']
+      if (current.length === 1) return []
       return current.filter((_, i) => i !== index)
     })
   }
@@ -405,7 +415,7 @@ export default function JoinForm({ event }: Props) {
               自分が参加しない場合でも、空き枠の範囲で友達の臨時IDを発行できます。
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              現在の参加者 {activeCount} / {event.max_participants}、追加可能 {remainingSlots} 名
+              現在の参加者 {activeCount} / {currentEvent.max_participants}、追加可能 {remainingSlots} 名
             </p>
           </div>
           <Button

@@ -3,7 +3,7 @@ import { getServerSupabase } from '@/lib/supabase-server'
 import MemberHeader from '@/components/MemberHeader'
 import EventList from '@/components/EventList'
 
-export const revalidate = 30
+export const revalidate = 0
 
 async function getEvents(): Promise<Event[]> {
   const supabase = getServerSupabase()

@@ -268,6 +268,8 @@ test.describe('user-flows E2E', () => {
     await page.goto(`/events/${testEventId}`)
 
     const guestName = `${runId} Guest`
+    await expect(page.locator('input[placeholder*="友達"]')).toHaveCount(0)
+    await page.getByRole('button', { name: '友達入力欄を追加' }).click()
     const guestInput = page.locator('input[placeholder*="友達"]').first()
     await expect(guestInput).toBeVisible({ timeout: 10_000 })
     await guestInput.fill(guestName)

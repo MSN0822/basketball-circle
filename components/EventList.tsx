@@ -38,7 +38,21 @@ function formatDateRange(startStr: string, endStr: string | null): string {
 
 export default function EventList({ events }: { events: Event[] }) {
   const router = useRouter()
+  const [visibleEvents, setVisibleEvents] = useState(events)
   const [myParticipations, setMyParticipations] = useState<Record<string, Participant>>({})
+
+  useEffect(() => {
+    setVisibleEvents(events)
+  }, [events])
+
+  async function reloadEvents() {
+    const { data } = await supabase
+      .from('events')
+      .select('*')
+      .order('event_date', { ascending: true })
+
+    if (data) setVisibleEvents(data.filter(event => event.status !== 'draft'))
+  }
 
   useEffect(() => {
     async function load() {
@@ -67,9 +81,22 @@ export default function EventList({ events }: { events: Event[] }) {
     load()
   }, [])
 
+  useEffect(() => {
+    const channel = supabase
+      .channel('event-list-events')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'events' },
+        () => { reloadEvents() }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
   return (
     <div className="space-y-4">
-      {events.map(event => {
+      {visibleEvents.map(event => {
         const myP = myParticipations[event.id]
         return (
           <div key={event.id} onClick={() => router.push(`/events/${event.id}`)} className="cursor-pointer">
