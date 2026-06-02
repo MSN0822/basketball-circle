@@ -383,7 +383,7 @@ await record('C-02', 'Same member duplicate join is rejected', async () => {
 
 await record('D-02', 'Member who is not personally joining can add a friend', async () => {
   const res = await join(mainEvent.id, `${runId} 友達A(佐藤の友達)`, memberB.member.id, true, memberB.accessToken)
-  return { status: res.status, body: res.body, passed: res.ok && res.body.participant?.user_code?.startsWith(`guest:${memberB.member.id}:`) }
+  return { status: res.status, body: res.body, passed: res.ok && Boolean(res.body.temporary_code) && res.body.participant?.user_code === undefined }
 })
 
 await record('D-03', 'Member can add multiple friends while seats remain', async () => {
@@ -397,7 +397,7 @@ await record('D-03', 'Member can add multiple friends while seats remain', async
 
 await record('D-04', 'Fourth friend is accepted when event capacity remains', async () => {
   const res = await join(mainEvent.id, `${runId} 友達4(佐藤の友達)`, memberB.member.id, true, memberB.accessToken)
-  return { status: res.status, body: res.body, passed: res.ok && res.body.participant?.user_code?.startsWith(`guest:${memberB.member.id}:`) }
+  return { status: res.status, body: res.body, passed: res.ok && Boolean(res.body.temporary_code) && res.body.participant?.user_code === undefined }
 })
 
 await record('D-05', 'Friend labels include inviter family name', async () => {
