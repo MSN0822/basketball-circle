@@ -14,3 +14,9 @@ test-results/
 .next-start*.log
 .next-start*.err
 .next-start*.pid
+
+# QA 生成物（実行ごとに再生成されるスクショ・レポートは履歴に載せない）
+docs/qa/evidence/
+docs/qa/playwright-report/
+# Supabase CLI キャッシュ
+supabase/.temp/
