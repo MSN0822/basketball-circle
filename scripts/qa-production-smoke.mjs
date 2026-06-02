@@ -154,7 +154,7 @@ async function createEvent(suffix, overrides = {}) {
   }
   const res = await appJson('/api/admin/events', {
     method: 'POST',
-    headers: { 'x-admin-password': ADMIN_PASSWORD },
+    headers: { Cookie: adminCookie },
     body: JSON.stringify(payload),
   })
   if (!res.ok || !res.body?.event?.id) throw new Error(`createEvent failed: ${res.status}`)
@@ -227,6 +227,7 @@ async function getParticipants(eventId) {
   return Array.isArray(res.body) ? res.body : []
 }
 
+let adminCookie = null
 let mainEvent
 let capacityEvent
 let concurrencyEvent
@@ -254,15 +255,17 @@ await record('F-01', 'Admin verification rejects invalid password', async () => 
   return { status: res.status, body: res.body, passed: res.status === 403 }
 })
 
-await record('F-02', 'Admin verification accepts configured password', async () => {
+await record('F-02', 'Admin verification accepts configured password and issues session cookie', async () => {
   const res = await appJson('/api/admin/verify', { method: 'POST', body: JSON.stringify({ password: ADMIN_PASSWORD }) })
-  return { status: res.status, body: res.body, passed: res.ok }
+  // 現行の管理API は HttpOnly Cookie セッションのみを検証するため、ここでセッションを確立して保持する
+  adminCookie = res.headers?.['set-cookie']?.split(';')[0] ?? null
+  return { status: res.status, hasCookie: Boolean(adminCookie), passed: res.ok && Boolean(adminCookie) }
 })
 
 await record('F-03', 'Admin event create rejects missing required fields', async () => {
   const res = await appJson('/api/admin/events', {
     method: 'POST',
-    headers: { 'x-admin-password': ADMIN_PASSWORD },
+    headers: { Cookie: adminCookie },
     body: JSON.stringify({ title: `${runId}_invalid` }),
   })
   return { status: res.status, body: res.body, passed: res.status === 400 }
@@ -273,7 +276,7 @@ await record('F-04', 'Admin event create rejects end time before start time', as
   const end = new Date(start.getTime() - 60 * 1000)
   const res = await appJson('/api/admin/events', {
     method: 'POST',
-    headers: { 'x-admin-password': ADMIN_PASSWORD },
+    headers: { Cookie: adminCookie },
     body: JSON.stringify({
       title: `${runId}_invalid_end`,
       event_date: start.toISOString(),
@@ -296,7 +299,7 @@ await record('F-06', 'Admin updates event title and capacity fields', async () =
   const patchedTitle = `${mainEvent.title}_PATCHED`
   const res = await appJson('/api/admin/events', {
     method: 'PATCH',
-    headers: { 'x-admin-password': ADMIN_PASSWORD },
+    headers: { Cookie: adminCookie },
     body: JSON.stringify({ id: mainEvent.id, title: patchedTitle, max_participants: 7, threshold: 5 }),
   })
   mainEvent = res.body?.event ?? mainEvent
@@ -528,7 +531,7 @@ await record('E-08', 'Past close datetime prevents reopen after cancellation bel
   const participant = joined.body?.participant
   await appJson('/api/admin/events', {
     method: 'PATCH',
-    headers: { 'x-admin-password': ADMIN_PASSWORD },
+    headers: { Cookie: adminCookie },
     body: JSON.stringify({
       id: reopenEvent.id,
       status: 'closed',

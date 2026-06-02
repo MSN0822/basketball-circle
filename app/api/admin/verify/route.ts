@@ -6,12 +6,7 @@ import {
   createAdminSessionToken,
   safeCompare,
 } from '@/lib/api-auth'
-
-type AttemptState = {
-  count: number
-  resetAt: number
-  lockedUntil: number
-}
+import { clearFailure, isLocked, recordFailure } from '@/lib/admin-rate-limit'
 
 export async function DELETE() {
   const res = NextResponse.json({ ok: true })
@@ -19,52 +14,12 @@ export async function DELETE() {
   return res
 }
 
-const attempts = new Map<string, AttemptState>()
-const ATTEMPT_WINDOW_MS = 15 * 60 * 1000
-const LOCK_MS = 15 * 60 * 1000
-const MAX_ATTEMPTS = 5
-
 function clientKey(req: NextRequest): string {
   return (
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-real-ip') ||
     'unknown'
   )
-}
-
-function getAttemptState(key: string, now = Date.now()): AttemptState {
-  const current = attempts.get(key)
-  if (!current) {
-    return { count: 0, resetAt: now + ATTEMPT_WINDOW_MS, lockedUntil: 0 }
-  }
-  // ロック中はウィンドウ失効によるリセットを行わず、ロックを最後まで維持する
-  // （lockedUntil > resetAt のケースでロックが想定より早く解けるのを防ぐ）
-  if (current.lockedUntil > now) {
-    return current
-  }
-  if (current.resetAt <= now) {
-    return { count: 0, resetAt: now + ATTEMPT_WINDOW_MS, lockedUntil: 0 }
-  }
-  return current
-}
-
-function isLocked(key: string, now = Date.now()): boolean {
-  const current = getAttemptState(key, now)
-  return current.lockedUntil > now
-}
-
-function recordFailure(key: string, now = Date.now()) {
-  const current = getAttemptState(key, now)
-  const nextCount = current.count + 1
-  attempts.set(key, {
-    count: nextCount,
-    resetAt: current.resetAt,
-    lockedUntil: nextCount >= MAX_ATTEMPTS ? now + LOCK_MS : current.lockedUntil,
-  })
-}
-
-function clearFailure(key: string) {
-  attempts.delete(key)
 }
 
 function clearAdminCookie(res: NextResponse) {

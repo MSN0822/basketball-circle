@@ -57,6 +57,18 @@ const dbAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY || SUPABASE_ANON_KEY
 
 let passed = 0
 let failed = 0
+let adminCookie = null
+
+async function adminLogin() {
+  const res = await fetch(`${BASE_URL}/api/admin/verify`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ password: ADMIN_PASSWORD }),
+  })
+  const cookie = res.headers.get('set-cookie')?.split(';')[0]
+  if (!res.ok || !cookie) throw new Error('admin login failed: ' + res.status)
+  return cookie
+}
 
 function ok(label, cond, extra = '') {
   if (cond) {
@@ -71,7 +83,7 @@ function ok(label, cond, extra = '') {
 async function adminPatch(body) {
   const res = await fetch(`${BASE_URL}/api/admin/events`, {
     method: 'PATCH',
-    headers: { 'content-type': 'application/json', 'x-admin-password': ADMIN_PASSWORD },
+    headers: { 'content-type': 'application/json', Cookie: adminCookie },
     body: JSON.stringify(body),
   })
   return res.json()
@@ -80,8 +92,8 @@ async function adminPatch(body) {
 async function cancelParticipant(participantId) {
   const res = await fetch(`${BASE_URL}/api/cancel`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ participant_id: participantId, admin: true, user_code: ADMIN_PASSWORD }),
+    headers: { 'content-type': 'application/json', Cookie: adminCookie },
+    body: JSON.stringify({ participant_id: participantId, admin: true }),
   })
   return res.json()
 }
@@ -97,7 +109,7 @@ async function createTestEvent(overrides = {}) {
   const end = new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString()
   const res = await fetch(`${BASE_URL}/api/admin/events`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-admin-password': ADMIN_PASSWORD },
+    headers: { 'content-type': 'application/json', Cookie: adminCookie },
     body: JSON.stringify({
       title: `[TEST] ${Date.now()}`,
       event_date: start,
@@ -116,7 +128,7 @@ async function createTestEvent(overrides = {}) {
 async function deleteEvent(id) {
   await fetch(`${BASE_URL}/api/admin/events`, {
     method: 'DELETE',
-    headers: { 'content-type': 'application/json', 'x-admin-password': ADMIN_PASSWORD },
+    headers: { 'content-type': 'application/json', Cookie: adminCookie },
     body: JSON.stringify({ id }),
   })
 }
@@ -245,6 +257,7 @@ async function testT5_capacityCloseAutoReopen() {
 console.log('=== is_manual_close / 自動再開ロジック テスト ===')
 
 try {
+  adminCookie = await adminLogin()
   await testT1_manualCloseFlag()
   await testT2_manualReopenResetsFlag()
   await testT3_manualCloseNoAutoReopen()

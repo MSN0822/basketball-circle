@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated Playwright HTML report (committed minified bundles).
+    "docs/qa/playwright-report/**",
+    "playwright-report/**",
   ]),
 ]);
 

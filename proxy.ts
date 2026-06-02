@@ -36,18 +36,26 @@ async function signAdminSessionPayload(payload: string): Promise<string | null> 
   return toBase64Url(signature)
 }
 
-async function checkAdminSession(request: NextRequest): Promise<boolean> {
-  const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value
+// Edge ランタイム（Web Crypto）側のトークン検証。lib/api-auth.ts（Node 側）の
+// verifyAdminSessionToken と等価であることをユニットテストで担保するため export している。
+export async function verifyAdminSessionTokenEdge(
+  token: string | null | undefined,
+  now: number = Date.now()
+): Promise<boolean> {
   if (!token) return false
 
   const [expiresAtRaw, nonce, signature, ...extra] = token.split('.')
   if (extra.length > 0 || !expiresAtRaw || !nonce || !signature) return false
 
   const expiresAt = Number(expiresAtRaw)
-  if (!Number.isInteger(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000)) return false
+  if (!Number.isInteger(expiresAt) || expiresAt <= Math.floor(now / 1000)) return false
 
   const expectedSignature = await signAdminSessionPayload(`${expiresAtRaw}.${nonce}`)
   return expectedSignature ? constantTimeEqual(signature, expectedSignature) : false
+}
+
+async function checkAdminSession(request: NextRequest): Promise<boolean> {
+  return verifyAdminSessionTokenEdge(request.cookies.get(ADMIN_SESSION_COOKIE)?.value)
 }
 
 export async function proxy(request: NextRequest) {
