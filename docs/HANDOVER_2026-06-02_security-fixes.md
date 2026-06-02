@@ -54,16 +54,16 @@
   ```
 - **注意**: 登録フロー（`/register` ページ）が POST 時に Bearer トークンを送っているか要確認。送っていなければフロント側も合わせて修正が必要（Supabase Auth のサインアップ直後のセッショントークンを付与）。
 
-### [C-3] `/admin` と `/api` が Middleware 認証を完全に回避 🔴
-- **ファイル**: `middleware.ts`（L8-17）
-- **現状**: パススルーリストに `pathname.startsWith('/admin')` と `pathname.startsWith('/api')` が含まれ、管理画面・管理APIにサーバーサイド認証が一切かからない。JS無効・curl直叩きで管理機能を操作できる（実際の防御は各 admin API の `x-admin-password` ヘッダーチェックのみ）。
+### [C-3] `/admin` と `/api` が Proxy 認証を完全に回避 🔴
+- **ファイル**: `proxy.ts`（Next.js 16 のルート前処理ファイル）
+- **現状**: 以前の実装ではパススルーリストに `pathname.startsWith('/admin')` と `pathname.startsWith('/api')` が含まれ、管理画面・管理APIにサーバーサイド認証が一切かからなかった。現行実装は `proxy.ts` で `/admin` 配下をHttpOnlyクッキー検証している。
 - **修正方針**（[H-5][H-6] とセットで対応）:
-  1. `/api` は API 個別で認証するため、Middleware パススルーのままで可（ただし `/api/admin/*` が個別に守られていることを確認）。
+  1. `/api` は API 個別で認証するため、Proxy パススルーのままで可（ただし `/api/admin/*` が個別に守られていることを確認）。
   2. `/admin` ページ群は **HttpOnly セッションクッキー方式**に移行する：
      - `/api/admin/verify` で認証成功時に `Set-Cookie`（HttpOnly / Secure / SameSite=Strict / 有効期限付き）でセッショントークンを発行。
-     - `middleware.ts` で `/admin` 配下はクッキー検証 → 失敗時 `/admin`(ログイン) へリダイレクト。
+     - `proxy.ts` で `/admin` 配下はクッキー検証 → 失敗時 `/admin`(ログイン) へリダイレクト。
      - これにより各 admin ページの `localStorage` 依存（[H-6]）を廃止できる。
-- **注意**: Next.js 16 のクッキー/Middleware API は通常版と異なる可能性大。`node_modules/next/dist/docs/` で `cookies()` / middleware の正しい使い方を確認してから実装すること。
+- **注意**: Next.js 16 のクッキー/Proxy API は通常版と異なる可能性大。`node_modules/next/dist/docs/` で `proxy.ts` / Cookie API の正しい使い方を確認してから実装すること。
 
 ### [C-4] 管理者パスワード検証にレート制限・定数時間比較がない 🟠（Critリストから降格）
 - **ファイル**: `app/api/admin/verify/route.ts`
@@ -93,7 +93,7 @@
 - **ファイル**: `app/admin/create/page.tsx` / `app/admin/events/[id]/edit/page.tsx`
 - **現状**: `localStorage` にキーがあれば即 `ready=true`。`/api/admin/verify` を叩かない（`app/admin/events/[id]/page.tsx` は検証している）。
 - **修正**: 両ページの初期化 `useEffect` で `/api/admin/verify` を実行し、失敗時は `/admin` にリダイレクト。
-  - ただし [C-3] のクッキー方式に移行すれば Middleware で一括防御でき、この個別対応は不要になる。**[C-3] を先にやるなら本項は自動解決**。
+  - ただし [C-3] のクッキー方式に移行すれば Proxy で一括防御でき、この個別対応は不要になる。**[C-3] を先にやるなら本項は自動解決**。
 
 ### [H-6] 管理者パスワードを localStorage に平文保存 🟠
 - **ファイル**: `app/admin/page.tsx` ほか admin 各ページ（`localStorage.setItem('basketball_admin_password', password)`）
@@ -152,12 +152,10 @@
 
 ## 3. Phase 3 — 継続的改善
 
-### [C-5] participants の waitlist 削除ブロック（デッドコード疑い）🟡（要確認）
-- **ファイル**: `app/api/participants/route.ts`（L63-71）
-- **状況**: `result.waitlist` が true のとき、直前に RPC が作った参加者行を削除して 409 を返す。**`join_event` RPC が `waitlist: true` を返す経路が現仕様で実在するか要確認**。
-  - 現行 RPC が容量超過時に直接エラーを返す仕様なら到達不能なデッドコード → 削除候補。
-  - まだ waitlist を返す経路があるなら、削除→409 という挙動が UX 的に妥当か再検討。
-- **アクション**: まず `supabase/migrations/` の `join_event` 定義を読んで `waitlist` 返却経路の有無を確認 → Claude/まっすんに判断を仰ぐ。**勝手に削除しない。**
+### [C-5] participants の waitlist 削除ブロック 🟢（対応済み）
+- **ファイル**: `app/api/participants/route.ts`
+- **確認結果**: 現行 `join_event` RPC は `waitlist: false` しか返さず、容量超過時はエラーを返す設計。待機リスト成功時の後処理分岐は到達不能だった。
+- **対応**: 到達不能分岐と専用メッセージ定数を削除済み。API レスポンスの `waitlist: false` は互換性維持のため残す。
 
 ### [M-1] DELETE /api/admin/events が id を UUID 検証していない 🟡
 - **ファイル**: `app/api/admin/events/route.ts`（L129-130, `!id` チェックのみ）

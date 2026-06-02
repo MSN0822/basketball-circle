@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const key = clientKey(req)
-  if (isLocked(key)) {
+  if (await isLocked(key)) {
     return NextResponse.json({ error: 'Too many attempts' }, { status: 429 })
   }
 
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin auth is not configured' }, { status: 500 })
     }
 
-    clearFailure(key)
+    await clearFailure(key)
     const res = NextResponse.json({ ok: true })
     res.cookies.set({
       name: ADMIN_SESSION_COOKIE,
@@ -67,6 +67,6 @@ export async function POST(req: NextRequest) {
     })
     return res
   }
-  recordFailure(key)
+  await recordFailure(key)
   return NextResponse.json({ error: '認証エラー' }, { status: 403 })
 }

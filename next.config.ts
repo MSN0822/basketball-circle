@@ -30,6 +30,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // localhost 以外（127.0.0.1 等）から dev サーバーへのアクセスを許可する（dev専用・本番無影響）。
+  // E2E をローカル dev に向けて 127.0.0.1 で実行しても cross-origin block でハイドレーションが
+  // 止まらないようにするための保険。本番ビルドには影響しない。
+  allowedDevOrigins: ["127.0.0.1"],
   async headers() {
     return [
       {

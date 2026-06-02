@@ -61,8 +61,10 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  const { user_code: _omittedUserCode, ...safeParticipant } = result.participant ?? {}
+
   return NextResponse.json({
-    participant: result.participant,
+    participant: result.participant ? safeParticipant : null,
     waitlist: false,
     temporary_code: temporaryCode,
   })
