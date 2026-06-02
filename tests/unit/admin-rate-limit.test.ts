@@ -66,4 +66,20 @@ describe('admin login lockout', () => {
     await expect(isLocked(KEY, BASE)).resolves.toBe(true)
     await expect(isLocked('198.51.100.9', BASE)).resolves.toBe(false)
   })
+
+  it('resets the failure count after the attempt window when not locked', async () => {
+    for (let i = 0; i < MAX_ATTEMPTS - 1; i++) {
+      await recordFailure(KEY, BASE)
+    }
+
+    const afterWindow = BASE + ATTEMPT_WINDOW_MS + 1
+    await recordFailure(KEY, afterWindow)
+    for (let i = 1; i < MAX_ATTEMPTS - 1; i++) {
+      await recordFailure(KEY, afterWindow + i)
+    }
+
+    await expect(isLocked(KEY, afterWindow + MAX_ATTEMPTS - 2)).resolves.toBe(false)
+    await recordFailure(KEY, afterWindow + MAX_ATTEMPTS)
+    await expect(isLocked(KEY, afterWindow + MAX_ATTEMPTS)).resolves.toBe(true)
+  })
 })

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import type { NextRequest } from 'next/server'
 import {
+  ADMIN_SESSION_MAX_AGE_SECONDS,
   safeCompare,
   createAdminSessionToken,
   verifyAdminSessionToken,
@@ -59,6 +60,12 @@ describe('admin session token', () => {
     const token = createAdminSessionToken(now)
     // 有効期限は 8 時間。9 時間後の時計では失効していること
     expect(verifyAdminSessionToken(token, now + 9 * 60 * 60 * 1000)).toBe(false)
+  })
+
+  it('rejects a token exactly at its expiry second', () => {
+    const token = createAdminSessionToken(now)
+    const expiresAtMs = (Math.floor(now / 1000) + ADMIN_SESSION_MAX_AGE_SECONDS) * 1000
+    expect(verifyAdminSessionToken(token, expiresAtMs)).toBe(false)
   })
 
   it('rejects a token with a tampered signature (same length)', () => {
