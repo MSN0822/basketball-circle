@@ -1,3 +1,9 @@
+-- Fix cancel_participant lock ordering.
+-- The previous version locked the target participant before the event row, which
+-- could deadlock when two participants from the same event were cancelled at
+-- the same time. Lock the event row first so same-event cancellation work is
+-- serialized before participant row locks are acquired.
+
 create or replace function public.cancel_participant(
   p_participant_id uuid
 )
@@ -7,6 +13,7 @@ security definer
 set search_path = public
 as $$
 declare
+  v_event_id uuid;
   v_participant participants%rowtype;
   v_cancelled participants%rowtype;
   v_event events%rowtype;
@@ -17,6 +24,25 @@ declare
 begin
   if p_participant_id is null then
     return jsonb_build_object('error', 'participant_id は必須です', 'status', 400);
+  end if;
+
+  select event_id
+    into v_event_id
+    from participants
+   where id = p_participant_id;
+
+  if not found then
+    return jsonb_build_object('error', '参加者が見つかりません', 'status', 404);
+  end if;
+
+  select *
+    into v_event
+    from events
+   where id = v_event_id
+   for update;
+
+  if not found then
+    return jsonb_build_object('error', 'イベントが見つかりません', 'status', 404);
   end if;
 
   select *
@@ -33,20 +59,11 @@ begin
     return jsonb_build_object('error', 'すでにキャンセル済みです', 'status', 400);
   end if;
 
-  select *
-    into v_event
-    from events
-   where id = v_participant.event_id
-   for update;
-
-  if not found then
-    return jsonb_build_object('error', 'イベントが見つかりません', 'status', 404);
-  end if;
-
   perform id
     from participants
-   where event_id = v_participant.event_id
+   where event_id = v_event.id
      and status in ('active', 'waitlist')
+   order by id
    for update;
 
   v_was_active := v_participant.status = 'active';
@@ -67,7 +84,7 @@ begin
           id
       ) as next_slot_number
     from participants
-    where event_id = v_participant.event_id
+    where event_id = v_event.id
       and status in ('active', 'waitlist')
   )
   update participants p
@@ -86,7 +103,7 @@ begin
           id
       ) as next_slot_number
     from participants
-    where event_id = v_participant.event_id
+    where event_id = v_event.id
       and status in ('active', 'waitlist')
   )
   update participants p
@@ -97,7 +114,7 @@ begin
   select count(*)
     into v_active_count
     from participants
-   where event_id = v_participant.event_id
+   where event_id = v_event.id
      and status = 'active';
 
   if v_was_active and v_event.status <> 'draft' and not v_event.is_manual_close then

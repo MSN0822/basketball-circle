@@ -1,0 +1,16 @@
+.git
+.git/**
+node_modules
+.next
+out
+test-results
+.env
+.env.local
+.env.*.local
+
+docs/qa/**
+outputs/**
+*.xlsx
+make_xlsx.py
+scripts/qa-*.mjs
+scripts/test-*.mjs

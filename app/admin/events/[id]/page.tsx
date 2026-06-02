@@ -121,11 +121,16 @@ export default function AdminEventDetailPage() {
     showConfirm(
       `「${event.title}」を削除しますか？\n参加者データも全て削除されます。`,
       async () => {
-        await fetch('/api/admin/events', {
+        const res = await fetch('/api/admin/events', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: event.id }),
         })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          showToast(`イベント削除に失敗しました: ${data.error ?? res.status}`)
+          return
+        }
         router.replace('/admin')
       },
     )

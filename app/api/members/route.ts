@@ -2,10 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Member } from '@/lib/supabase'
 import { getBearerUser } from '@/lib/api-auth'
 import { getServerSupabase } from '@/lib/supabase-server'
+import { isValidUuid } from '@/lib/validators'
 
 const supabase = getServerSupabase()
+const MAX_NAME_LENGTH = 100
 
 type RegisterMemberResult = {
+  error?: string
+  status?: number
+  member?: Member
+}
+
+type UpdateMemberNameResult = {
   error?: string
   status?: number
   member?: Member
@@ -47,6 +55,9 @@ export async function POST(req: NextRequest) {
 
   if (!trimmedName || !auth_user_id) {
     return NextResponse.json({ error: 'name と auth_user_id は必須です' }, { status: 400 })
+  }
+  if (trimmedName.length > MAX_NAME_LENGTH) {
+    return NextResponse.json({ error: `name は ${MAX_NAME_LENGTH} 文字以内で入力してください` }, { status: 400 })
   }
 
   const user = await getBearerUser(req)
@@ -95,31 +106,33 @@ export async function PATCH(req: NextRequest) {
   if (!member_id || !trimmedName) {
     return NextResponse.json({ error: 'member_id と name は必須です' }, { status: 400 })
   }
-
-  const { data, error: memberError } = await supabase
-    .from('members')
-    .update({ name: trimmedName })
-    .eq('id', member_id)
-    .eq('auth_user_id', user.id)
-    .select('*')
-    .single<Member>()
-
-  if (memberError || !data) {
-    return NextResponse.json(
-      { error: memberError?.message ?? '会員情報の更新に失敗しました' },
-      { status: 500 }
-    )
+  if (!isValidUuid(member_id)) {
+    return NextResponse.json({ error: 'member_id の形式が正しくありません' }, { status: 400 })
+  }
+  if (trimmedName.length > MAX_NAME_LENGTH) {
+    return NextResponse.json({ error: `name は ${MAX_NAME_LENGTH} 文字以内で入力してください` }, { status: 400 })
   }
 
-  const { error: participantsError } = await supabase
-    .from('participants')
-    .update({ name: trimmedName })
-    .eq('member_id', member_id)
-    .in('status', ['active', 'waitlist'])
+  const { data, error } = await supabase.rpc('update_member_name', {
+    p_member_id: member_id,
+    p_auth_user_id: user.id,
+    p_name: trimmedName,
+  })
 
-  if (participantsError) {
-    return NextResponse.json({ error: participantsError.message }, { status: 500 })
+  if (error) {
+    if (error.code === 'PGRST202' || error.message?.includes('update_member_name')) {
+      return NextResponse.json({ error: '会員名更新RPCが未適用です' }, { status: 500 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ member: data })
+  const result = data as UpdateMemberNameResult | null
+  if (!result) {
+    return NextResponse.json({ error: '会員情報の更新に失敗しました' }, { status: 500 })
+  }
+  if (result.error) {
+    return NextResponse.json({ error: result.error }, { status: result.status ?? 400 })
+  }
+
+  return NextResponse.json({ member: result.member })
 }

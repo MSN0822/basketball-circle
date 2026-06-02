@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateUserCode, Participant } from '@/lib/supabase'
 import { getAuthenticatedMember } from '@/lib/api-auth'
 import { getServerSupabase } from '@/lib/supabase-server'
+import { isValidUuid } from '@/lib/validators'
 
 const supabase = getServerSupabase()
 
@@ -10,10 +11,7 @@ type JoinEventResult = {
   status?: number
   participant_status?: Participant['status']
   participant?: Participant
-  waitlist?: boolean
 }
-
-const CLOSED_MESSAGE = '定員に達したため締め切りました。参加枠が閾値未満になるまで追加申請できません'
 
 export async function POST(req: NextRequest) {
   const { event_id, name, member_id, guest } = await req.json()
@@ -27,6 +25,9 @@ export async function POST(req: NextRequest) {
 
   if (!event_id || !trimmedName) {
     return NextResponse.json({ error: '名前とイベントIDは必須です' }, { status: 400 })
+  }
+  if (!isValidUuid(event_id)) {
+    return NextResponse.json({ error: 'event_id の形式が正しくありません' }, { status: 400 })
   }
 
   const temporaryCode = generateUserCode()
@@ -58,16 +59,6 @@ export async function POST(req: NextRequest) {
       { error: result.error, status: result.participant_status },
       { status: result.status ?? 400 }
     )
-  }
-
-  if (result.waitlist) {
-    if (result.participant?.id) {
-      await supabase
-        .from('participants')
-        .delete()
-        .eq('id', result.participant.id)
-    }
-    return NextResponse.json({ error: CLOSED_MESSAGE }, { status: 409 })
   }
 
   return NextResponse.json({

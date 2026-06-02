@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Participant } from '@/lib/supabase'
-import { checkAdmin, getAuthenticatedMember, getBearerToken } from '@/lib/api-auth'
+import { checkAdmin, getAuthenticatedMember, getBearerToken, safeCompare } from '@/lib/api-auth'
 import { getServerSupabase } from '@/lib/supabase-server'
+import { isValidUuid } from '@/lib/validators'
 
 const supabase = getServerSupabase()
 
@@ -10,6 +11,9 @@ export async function POST(req: NextRequest) {
 
   if (!participant_id) {
     return NextResponse.json({ error: 'participant_id は必須です' }, { status: 400 })
+  }
+  if (!isValidUuid(participant_id)) {
+    return NextResponse.json({ error: 'participant_id の形式が正しくありません' }, { status: 400 })
   }
 
   const { data: participant } = await supabase
@@ -40,7 +44,7 @@ export async function POST(req: NextRequest) {
     if (participant.member_id !== auth.member.id && !ownsGuest) {
       return NextResponse.json({ error: '本人確認に失敗しました' }, { status: 403 })
     }
-  } else if (!participant.member_id && !participant.user_code.startsWith('guest:') && user_code === participant.user_code) {
+  } else if (!participant.member_id && !participant.user_code.startsWith('guest:') && safeCompare(user_code, participant.user_code)) {
     // Legacy non-member cancellations are still allowed by temporary code.
   } else {
     return NextResponse.json({ error: 'ログインが必要です' }, { status: 401 })

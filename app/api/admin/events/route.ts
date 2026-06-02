@@ -2,12 +2,41 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Event, EventStatus } from '@/lib/supabase'
 import { checkAdmin } from '@/lib/api-auth'
 import { getServerSupabase } from '@/lib/supabase-server'
+import { isValidUuid } from '@/lib/validators'
 
 const supabase = getServerSupabase()
 const EVENT_STATUSES: EventStatus[] = ['accepting', 'closed', 'draft']
+const MAX_TITLE_LENGTH = 200
+const MAX_LOCATION_LENGTH = 200
+const MAX_URL_LENGTH = 2000
 
 function jsonError(error: string, status = 400) {
   return NextResponse.json({ error }, { status })
+}
+
+function validateStringLength(value: unknown, field: string, maxLength: number): string | null {
+  if (typeof value !== 'string') return `${field} の形式が正しくありません`
+  if (value.length > maxLength) return `${field} は ${maxLength} 文字以内で入力してください`
+  return null
+}
+
+function validateLocationUrl(url: unknown): string | null | { error: string } {
+  if (url === null || url === '' || url === undefined) return null
+  if (typeof url !== 'string') return { error: 'location_url の形式が正しくありません' }
+  if (url.length > MAX_URL_LENGTH) {
+    return { error: `location_url は ${MAX_URL_LENGTH} 文字以内で入力してください` }
+  }
+
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { error: 'location_url は http または https の URL を入力してください' }
+    }
+  } catch {
+    return { error: 'location_url の形式が正しくありません' }
+  }
+
+  return url
 }
 
 function parseRequiredDate(value: unknown, field: string): string | { error: string } {
@@ -67,6 +96,17 @@ export async function POST(req: NextRequest) {
     return jsonError('title, event_date, event_end_date, location は必須です')
   }
 
+  const titleError = validateStringLength(title, 'title', MAX_TITLE_LENGTH)
+  if (titleError) return jsonError(titleError)
+
+  const locationError = validateStringLength(location, 'location', MAX_LOCATION_LENGTH)
+  if (locationError) return jsonError(locationError)
+
+  const parsedLocationUrl = validateLocationUrl(location_url)
+  if (parsedLocationUrl !== null && typeof parsedLocationUrl === 'object' && parsedLocationUrl.error) {
+    return jsonError(parsedLocationUrl.error)
+  }
+
   if (!EVENT_STATUSES.includes(status)) {
     return jsonError('status が正しくありません')
   }
@@ -103,7 +143,7 @@ export async function POST(req: NextRequest) {
       event_date: parsedStart,
       event_end_date: parsedEnd,
       location,
-      location_url,
+      location_url: parsedLocationUrl,
       closes_at: parsedClosesAt,
       publishes_at: parsedPublishesAt,
       max_participants: parsedMaxParticipants,
@@ -124,8 +164,16 @@ export async function DELETE(req: NextRequest) {
 
   const { id } = await req.json()
   if (!id) return jsonError('id は必須です')
+  if (!isValidUuid(id)) {
+    return jsonError('id の形式が正しくありません')
+  }
 
-  await supabase.from('participants').delete().eq('event_id', id)
+  const { error: participantsError } = await supabase
+    .from('participants')
+    .delete()
+    .eq('event_id', id)
+  if (participantsError) return jsonError(participantsError.message, 500)
+
   const { error } = await supabase.from('events').delete().eq('id', id)
 
   if (error) return jsonError(error.message, 500)
@@ -143,6 +191,9 @@ export async function PATCH(req: NextRequest) {
   if (!id) {
     return jsonError('id は必須です')
   }
+  if (!isValidUuid(id)) {
+    return jsonError('id の形式が正しくありません')
+  }
 
   const { data: current, error: currentError } = await supabase
     .from('events')
@@ -158,12 +209,31 @@ export async function PATCH(req: NextRequest) {
     return jsonError('status が正しくありません')
   }
 
+  if (title !== undefined) {
+    const titleError = validateStringLength(title, 'title', MAX_TITLE_LENGTH)
+    if (titleError) return jsonError(titleError)
+  }
+
+  if (location !== undefined) {
+    const locationError = validateStringLength(location, 'location', MAX_LOCATION_LENGTH)
+    if (locationError) return jsonError(locationError)
+  }
+
+  const parsedLocationUrl = validateLocationUrl(location_url)
+  if (parsedLocationUrl !== null && typeof parsedLocationUrl === 'object' && parsedLocationUrl.error) {
+    return jsonError(parsedLocationUrl.error)
+  }
+
   const nextStart = event_date === undefined ? current.event_date : parseRequiredDate(event_date, 'event_date')
   if (typeof nextStart !== 'string') return jsonError(nextStart.error)
 
   const nextEnd = event_end_date === undefined ? current.event_end_date : parseRequiredDate(event_end_date, 'event_end_date')
   if (!nextEnd || typeof nextEnd !== 'string') {
-    return jsonError(typeof nextEnd === 'object' && nextEnd?.error ? nextEnd.error : 'event_end_date が正しくありません')
+    const message =
+      typeof nextEnd === 'object' && nextEnd !== null && 'error' in nextEnd
+        ? nextEnd.error
+        : 'event_end_date が正しくありません'
+    return jsonError(message)
   }
 
   if (!isEndAfterStart(nextStart, nextEnd)) {
@@ -195,7 +265,7 @@ export async function PATCH(req: NextRequest) {
   if (event_date !== undefined) patch.event_date = nextStart
   if (event_end_date !== undefined) patch.event_end_date = nextEnd
   if (location !== undefined) patch.location = location
-  if (location_url !== undefined) patch.location_url = location_url
+  if (location_url !== undefined) patch.location_url = parsedLocationUrl
   if (closes_at !== undefined) {
     const parsed = parseNullableDate(closes_at, 'closes_at')
     if (typeof parsed === 'object' && parsed?.error) return jsonError(parsed.error)

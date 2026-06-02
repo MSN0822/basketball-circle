@@ -4,6 +4,7 @@ import { getServerSupabase } from '@/lib/supabase-server'
 /**
  * Vercel Cron Job: 毎日 15:00 UTC (= 00:00 JST) に実行
  * 終了日時が過去のイベント（当日の日付が変わったもの）を自動削除する
+ * CRON_SECRET を Vercel 環境変数に設定しないと自動削除は動きません
  */
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET
