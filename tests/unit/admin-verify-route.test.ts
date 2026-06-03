@@ -43,7 +43,8 @@ describe('/api/admin/verify', () => {
     }))
 
     expect(res.status).toBe(429)
-    expect(mocks.isLocked).toHaveBeenCalledWith('203.0.113.10')
+    expect(mocks.isLocked).toHaveBeenCalledWith('ip:198.51.100.1')
+    expect(mocks.isLocked).toHaveBeenCalledWith('global:admin-login')
     expect(mocks.safeCompare).not.toHaveBeenCalled()
     expect(mocks.recordFailure).not.toHaveBeenCalled()
   })
@@ -56,7 +57,8 @@ describe('/api/admin/verify', () => {
     }))
 
     expect(res.status).toBe(200)
-    expect(mocks.clearFailure).toHaveBeenCalledWith('198.51.100.20')
+    expect(mocks.clearFailure).toHaveBeenCalledWith('ip:198.51.100.20')
+    expect(mocks.clearFailure).toHaveBeenCalledWith('global:admin-login')
     expect(mocks.recordFailure).not.toHaveBeenCalled()
     const setCookie = res.headers.get('set-cookie') ?? ''
     expect(setCookie).toContain('basketball_admin_session=signed-token')
@@ -70,8 +72,26 @@ describe('/api/admin/verify', () => {
     const res = await POST(jsonRequest({ password: 'wrong' }))
 
     expect(res.status).toBe(403)
-    expect(mocks.recordFailure).toHaveBeenCalledWith('unknown')
+    expect(mocks.recordFailure).toHaveBeenCalledWith('ip:unknown')
+    expect(mocks.recordFailure).toHaveBeenCalledWith('global:admin-login')
     expect(mocks.clearFailure).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 and records a failure for invalid JSON bodies', async () => {
+    const { POST, mocks } = await loadRoute({ passwordOk: false })
+
+    const res = await POST(new Request('http://localhost/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-real-ip': '198.51.100.30' },
+      body: '{',
+    }) as never)
+    const body = await responseJson<{ error?: string }>(res)
+
+    expect(res.status).toBe(400)
+    expect(body.error).toBe('password は必須です')
+    expect(mocks.recordFailure).toHaveBeenCalledWith('ip:198.51.100.30')
+    expect(mocks.recordFailure).toHaveBeenCalledWith('global:admin-login')
+    expect(mocks.safeCompare).not.toHaveBeenCalled()
   })
 
   it('returns 500 when the admin token cannot be created', async () => {

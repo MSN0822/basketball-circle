@@ -60,6 +60,16 @@ describe('POST /api/members', () => {
     expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
   })
 
+  it('rejects non-string names without throwing', async () => {
+    const { POST, supabase, mocks } = await loadRoute()
+
+    const res = await POST(jsonRequest({ name: 123, auth_user_id: AUTH_USER_ID }))
+
+    expect(res.status).toBe(400)
+    expect(mocks.getBearerUser).not.toHaveBeenCalled()
+    expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
+  })
+
   it('allows a 100 character name and calls register_member', async () => {
     const { POST, supabase } = await loadRoute()
 
@@ -105,6 +115,15 @@ describe('PATCH /api/members', () => {
     const { PATCH, supabase } = await loadRoute()
 
     const res = await PATCH(jsonRequest({ member_id: MEMBER_ID, name: 'a'.repeat(101) }, { method: 'PATCH' }))
+
+    expect(res.status).toBe(400)
+    expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('rejects non-string PATCH names without throwing', async () => {
+    const { PATCH, supabase } = await loadRoute()
+
+    const res = await PATCH(jsonRequest({ member_id: MEMBER_ID, name: 123 }, { method: 'PATCH' }))
 
     expect(res.status).toBe(400)
     expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
