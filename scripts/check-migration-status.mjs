@@ -72,6 +72,13 @@ const checks = [
     evidence: rows => `applied=${formatValue(rows[0]?.applied)}`,
   },
   {
+    id: 'Q5b',
+    item: 'record_admin_login_failure RPC',
+    sql: "SELECT to_regprocedure('public.record_admin_login_failure(text, integer, integer, integer)') IS NOT NULL AS applied",
+    interpret: rows => booleanStatus(rows[0]?.applied),
+    evidence: rows => `applied=${formatValue(rows[0]?.applied)}`,
+  },
+  {
     id: 'Q6',
     item: 'participants_delete policy removed',
     sql: "SELECT NOT EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='participants' AND policyname='participants_delete') AS applied",
@@ -116,24 +123,31 @@ const checks = [
   },
   {
     id: 'Q9',
-    item: 'members and participants select require authenticated role',
+    item: 'public read model: members own select + participants_public view',
     sql: `
       SELECT
         EXISTS(
           SELECT 1 FROM pg_policies
           WHERE schemaname='public'
             AND tablename='members'
-            AND policyname='members_select_authenticated'
+            AND policyname='members_select_own'
             AND cmd='SELECT'
             AND roles::text = '{authenticated}'
         )
-        AND EXISTS(
+        AND NOT EXISTS(
           SELECT 1 FROM pg_policies
           WHERE schemaname='public'
             AND tablename='participants'
-            AND policyname='participants_select_authenticated'
             AND cmd='SELECT'
-            AND roles::text = '{authenticated}'
+        )
+        AND EXISTS(
+          SELECT 1
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname='public'
+            AND c.relname='participants_public'
+            AND c.relkind='v'
+            AND COALESCE(c.reloptions, ARRAY[]::text[]) @> ARRAY['security_invoker=false']
         )
         AS applied
     `,
@@ -147,6 +161,11 @@ const additionalQueries = [
     id: 'A1',
     title: 'participants policies',
     sql: "SELECT policyname, cmd, roles::text FROM pg_policies WHERE schemaname='public' AND tablename='participants' ORDER BY policyname",
+  },
+  {
+    id: 'A1b',
+    title: 'participants_public view options',
+    sql: "SELECT c.relname, c.reloptions FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname='public' AND c.relname='participants_public'",
   },
   {
     id: 'A2',
