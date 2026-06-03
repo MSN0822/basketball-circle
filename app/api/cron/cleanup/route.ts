@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabase } from '@/lib/supabase-server'
 
+const DELETE_BATCH_SIZE = 100
+
 /**
  * Vercel Cron Job: 毎日 15:00 UTC (= 00:00 JST) に実行
  * 終了日時が過去のイベント（当日の日付が変わったもの）を自動削除する
@@ -34,26 +36,27 @@ export async function GET(req: NextRequest) {
   }
 
   const ids = expiredEvents.map(e => e.id)
+  let deleted = 0
 
-  // 参加者を先に削除（外部キー制約がある場合に備えて）
-  const { error: participantsError } = await supabase
-    .from('participants')
-    .delete()
-    .in('event_id', ids)
+  for (let index = 0; index < ids.length; index += DELETE_BATCH_SIZE) {
+    const batchIds = ids.slice(index, index + DELETE_BATCH_SIZE)
 
-  if (participantsError) {
-    return NextResponse.json({ error: participantsError.message }, { status: 500 })
+    // participants は schema.sql の on delete cascade に任せる。
+    // 途中失敗しても削除済みバッチは冪等で、残りは次回 cron で再回収される。
+    const { error: eventsError } = await supabase
+      .from('events')
+      .delete()
+      .in('id', batchIds)
+
+    if (eventsError) {
+      return NextResponse.json(
+        { error: eventsError.message, deleted, attempted: ids.length },
+        { status: 500 }
+      )
+    }
+
+    deleted += batchIds.length
   }
 
-  // イベントを削除
-  const { error: eventsError } = await supabase
-    .from('events')
-    .delete()
-    .in('id', ids)
-
-  if (eventsError) {
-    return NextResponse.json({ error: eventsError.message }, { status: 500 })
-  }
-
-  return NextResponse.json({ deleted: ids.length })
+  return NextResponse.json({ deleted })
 }
