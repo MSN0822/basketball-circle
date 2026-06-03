@@ -6,7 +6,7 @@
 -- app/api/participants/route.ts 経由で status:500 + 生 Postgres メッセージとして
 -- ユーザーへ露出するのを防ぐ。違反時は 409 + 安全なメッセージを返す。
 --
--- 20260527_allow_guest_invites_until_capacity.sql の定義をベースに、
+-- 20260527010000_allow_guest_invites_until_capacity.sql の定義をベースに、
 -- INSERT 部分のみ begin/exception ブロックで囲んだ版に置き換える。
 
 create or replace function public.join_event(

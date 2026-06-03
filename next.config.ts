@@ -1,5 +1,31 @@
 import type { NextConfig } from "next";
 
+// CSP connect-src には本番の Supabase ワイルドカード（https://*.supabase.co）に加え、
+// ビルド時に設定された Supabase エンドポイント（NEXT_PUBLIC_SUPABASE_URL）の origin を
+// http/ws 両方で動的に許可する。これによりローカル（http://127.0.0.1:54321）への
+// browser-side supabase 接続・Realtime も通る。本番では https://<project>.supabase.co が
+// 既存ワイルドカードと重複するだけで無影響。
+function supabaseConnectSources(): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return "";
+  try {
+    const origin = new URL(url).origin;
+    const wsOrigin = origin.replace(/^http/, "ws");
+    return `${origin} ${wsOrigin}`;
+  } catch {
+    return "";
+  }
+}
+
+const connectSrc = [
+  "connect-src 'self'",
+  "https://*.supabase.co wss://*.supabase.co",
+  supabaseConnectSources(),
+  "https://maps.googleapis.com https://maps.gstatic.com",
+]
+  .filter(Boolean)
+  .join(" ");
+
 const securityHeaders = [
   {
     key: "X-Frame-Options",
@@ -21,7 +47,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://maps.googleapis.com https://maps.gstatic.com",
+      connectSrc,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

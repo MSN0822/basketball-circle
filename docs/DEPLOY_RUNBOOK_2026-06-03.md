@@ -30,34 +30,41 @@ node scripts/check-migration-status.mjs
 
 ## 2. 適用順
 
-未適用ファイルを辞書順で適用します。依存順もこの順序で満たされます。
+未適用ファイルをファイル名（14 桁 timestamp）昇順で適用します。依存順もこの順序で満たされます。
+
+> 注: 2026-06-04 に migration を Supabase CLI 互換へ整備し、ファイル名を一意な 14 桁
+> timestamp へ改名した（`supabase start` / `npm run test:db` がローカルで通るようになった）。
+> `20260525000000_baseline_schema.sql` は**新規 / ローカル DB 専用**の基底スキーマで、
+> 本番 DB は基底テーブルを既に保有しているため**本番へは手動適用しない**こと
+> （冪等だが二重適用の混乱を避ける）。本番に流す未適用ファイルは下記のうち未適用分のみ。
 
 ```text
-supabase/migrations/20260526_add_event_end_date.sql
-supabase/migrations/20260526_add_is_manual_close.sql
-supabase/migrations/20260526_join_event_rpc.sql
-supabase/migrations/20260526_prepare_rls_hardening.sql
-supabase/migrations/20260526_register_member_rpc.sql
-supabase/migrations/20260527_allow_guest_invites_until_capacity.sql
-supabase/migrations/20260527_close_full_events_without_waitlist.sql
-supabase/migrations/20260527_enable_events_realtime.sql
-supabase/migrations/20260527_harden_public_mutation_policies.sql
-supabase/migrations/20260602_cancel_participant_lock_order_fix.sql
-supabase/migrations/20260602_create_admin_login_attempts.sql
-supabase/migrations/20260602_drop_participants_delete_open_policy.sql
-supabase/migrations/20260602_join_event_unique_violation_guard.sql
-supabase/migrations/20260602_participants_slot_unique_index.sql
-supabase/migrations/20260602_revoke_register_member_anon_execute.sql
-supabase/migrations/20260602_update_member_name_rpc.sql
-supabase/migrations/20260603_restrict_private_rpc_and_select.sql
-supabase/migrations/20260603_zz_admin_login_attempts_rpc.sql
-supabase/migrations/20260603_zz_public_participants_view.sql
+supabase/migrations/20260525000000_baseline_schema.sql  ← 新規/ローカルのみ。本番は適用しない
+supabase/migrations/20260526010000_add_event_end_date.sql
+supabase/migrations/20260526020000_add_is_manual_close.sql
+supabase/migrations/20260526030000_join_event_rpc.sql
+supabase/migrations/20260526040000_prepare_rls_hardening.sql
+supabase/migrations/20260526050000_register_member_rpc.sql
+supabase/migrations/20260527010000_allow_guest_invites_until_capacity.sql
+supabase/migrations/20260527020000_close_full_events_without_waitlist.sql
+supabase/migrations/20260527030000_enable_events_realtime.sql
+supabase/migrations/20260527040000_harden_public_mutation_policies.sql
+supabase/migrations/20260602010000_cancel_participant_lock_order_fix.sql
+supabase/migrations/20260602020000_create_admin_login_attempts.sql
+supabase/migrations/20260602030000_drop_participants_delete_open_policy.sql
+supabase/migrations/20260602040000_join_event_unique_violation_guard.sql
+supabase/migrations/20260602050000_participants_slot_unique_index.sql
+supabase/migrations/20260602060000_revoke_register_member_anon_execute.sql
+supabase/migrations/20260602070000_update_member_name_rpc.sql
+supabase/migrations/20260603010000_restrict_private_rpc_and_select.sql
+supabase/migrations/20260603020000_admin_login_attempts_rpc.sql
+supabase/migrations/20260603030000_public_participants_view.sql
 ```
 
 重要な依存:
 
-- `20260602_create_admin_login_attempts.sql` の後に `20260603_zz_admin_login_attempts_rpc.sql`
-- `20260603_restrict_private_rpc_and_select.sql` の後に `20260603_zz_public_participants_view.sql`
+- `20260602020000_create_admin_login_attempts.sql` の後に `20260603020000_admin_login_attempts_rpc.sql`
+- `20260603010000_restrict_private_rpc_and_select.sql` の後に `20260603030000_public_participants_view.sql`
 
 適用コマンド:
 
@@ -207,6 +214,33 @@ grant execute on function public.update_member_name(uuid, uuid, text) to authent
 grant execute on function public.register_member(text, uuid) to authenticated;
 ```
 
-## 7. 削除候補
+## 7. 削除済み: 重複 migration
 
-`supabase/migrations/add_is_manual_close.sql` は接頭辞付きの `20260526_add_is_manual_close.sql` に複製済みです。AI は削除しないため、不要確認後に人間が削除候補として扱ってください。`schema.sql` には `is_manual_close` が既に含まれるため、新規 DB ではこの migration は no-op です。
+`supabase/migrations/add_is_manual_close.sql`（無印）は `20260526020000_add_is_manual_close.sql`
+と同一の no-op 重複だったため、2026-06-04 の CLI 互換化で削除済み（`git rm`）。
+`is_manual_close` カラムは baseline / `20260526020000_add_is_manual_close.sql` の両方が
+`add column if not exists` で冪等に作る。
+
+## 8. セキュリティ設計の既知トレードオフ / 運用注意
+
+監査（2026-06-03）で確認した、意図的に許容している設計と運用上の注意点。デプロイ後に「不具合」と誤診しないこと。
+
+### 8.1 admin ログインの global ロックは全管理者に効く（意図的）
+
+`/api/admin/verify` のレート制限は `ip:<client>` と `global:admin-login` の2系統で記録する（`app/api/admin/verify/route.ts`）。`global:admin-login` は共有キーのため、匿名の攻撃者が15分窓内に5回失敗させると **全管理者の新規ログインが最大15分間 429 で封鎖**される。
+
+- これは IP ローテーション／分散ブルートフォースを止めるための**意図的なトレードオフ**。
+- **ログイン済みセッション（cookie 保持）は無影響**（`GET` はレート制限を経由しない）。攻撃者は管理画面に入れない。
+- 自己回復する（最大 `LOCK_MS` = 15分）。封鎖が継続して困る場合は、`admin_login_attempts` の `global:admin-login` 行を service_role で削除すれば即時解除できる。
+- 不正 JSON / パスワード無しの 400 も失敗としてカウントする（防御寄りの仕様）。
+
+### 8.2 participants の anon realtime は配信されない（15秒ポーリングにフォールバック）
+
+最終 RLS 状態では `participants` に SELECT ポリシーが無いため、anon ブラウザの Realtime 購読には変更イベントが配信されない。`components/ParticipantList.tsx` は **15秒ポーリング**でフォールバックするため UI は最終的に収束する（最大15秒の遅延）。これは RLS ハードニングに伴う**仕様**であり、データ露出やデプロイブロッカーではない。
+
+### 8.3 migration 適用ゲート（再実行禁止）
+
+`scripts/apply-migration.mjs` は適用台帳を持たず、渡されたファイルを無条件に適用する。適用後は必ず `node scripts/check-migration-status.mjs` を実行し、特に **Q6 / Q8 / Q9** が「適用済み」であることをゲートとして確認すること。
+
+- `20260603010000_restrict_private_rpc_and_select.sql` を `20260603030000_public_participants_view.sql` の**後に単独再実行すると** `participants_select_authenticated (using true)` が復活し、**user_code が authenticated に再露出する**。途中ファイルの再実行は禁止。
+- `schema.sql` は本バンドルのセキュリティ部分（`members_select_own` / participants 直 SELECT なし / `participants_public` view / `admin_login_attempts`）を反映済み。ただし RPC 関数本体と一部の旧カラムは未反映のため、新規 DB は `schema.sql` 適用後に migrations を辞書順で適用すること。

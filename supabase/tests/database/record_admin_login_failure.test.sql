@@ -148,9 +148,12 @@ select throws_ok(
   'blank keys are rejected'
 );
 
-select like(
-  pg_get_functiondef('public.record_admin_login_failure(text, integer, integer, integer)'::regprocedure),
-  '%on conflict (key) do update%',
+-- pgTAP の like() テスト関数は組み込み like 演算子と名前衝突し、unknown リテラルの
+-- 型解決に失敗する（function like(text, unknown, unknown) does not exist）。
+-- SQL の LIKE 演算子を ok() 内で評価することで衝突を回避しつつ同じ意図を担保する。
+select ok(
+  pg_get_functiondef('public.record_admin_login_failure(text, integer, integer, integer)'::regprocedure)
+    like '%on conflict (key) do update%',
   'RPC uses ON CONFLICT for database-side atomic increments'
 );
 

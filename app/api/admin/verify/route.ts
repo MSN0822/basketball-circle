@@ -16,6 +16,12 @@ export async function DELETE() {
   return res
 }
 
+// Vercel always sets x-real-ip to the real client IP, so that is the trusted
+// source in production. The x-forwarded-for fallback is best-effort only: the
+// whole header is client-controlled, so it is NOT a trustworthy IP source if
+// x-real-ip is ever absent. Per-IP limiting is therefore backed by the shared
+// global:admin-login key (see rateLimitKeys), which caps brute force regardless
+// of IP spoofing. Do not rely on the per-IP key alone as the sole control.
 function clientIdentifier(req: NextRequest): string {
   const realIp = req.headers.get('x-real-ip')?.trim()
   if (realIp) return realIp

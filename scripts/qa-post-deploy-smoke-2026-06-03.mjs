@@ -5,12 +5,15 @@
  *   1. all DB migrations are applied
  *   2. the app is deployed
  *
- * It creates QA_* rows and cleans them up. It also snapshots/restores
- * admin_login_attempts around rate-limit checks.
+ * It creates QA_* rows and cleans them up. For the rate-limit checks it only
+ * deletes the admin_login_attempts rows it creates itself (the two RFC 5737
+ * test IP keys plus the shared global:admin-login key). Resetting the shared
+ * global key can clear a concurrent real lockout, so run this in a quiet window.
+ * A stricter future approach would undo only the script's own contribution to
+ * global:admin-login via an atomic decrement RPC instead of deleting the row.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 
 const root = process.cwd()
@@ -95,47 +98,33 @@ async function fetchJson(pathname, options = {}) {
   return { status: res.status, ok: res.ok, body, headers: res.headers }
 }
 
-async function snapshotAdminAttempts() {
-  const { data, error } = await supabaseAdmin
+// Keys this script itself creates during the rate-limit checks. POST-04 sends a
+// fixed x-real-ip; POST-05 sends a distinct x-real-ip per attempt. clientIdentifier
+// (app/api/admin/verify/route.ts) prefers x-real-ip, so these map 1:1 to ip:<ip>.
+// Every admin verify attempt also touches the shared global:admin-login key.
+const SCRIPT_RATE_LIMIT_KEYS = [
+  'global:admin-login',
+  'ip:198.51.100.203',
+  ...Array.from({ length: 6 }, (_, i) => `ip:198.51.100.${20 + i}`),
+]
+
+// Only ever delete the script's own known keys. Never snapshot/upsert the whole
+// table: the shared global:admin-login row is mutated by live traffic, and a
+// blind restore would roll back concurrent real increments/lockouts.
+async function clearScriptRateLimitKeys() {
+  const { error } = await supabaseAdmin
     .from('admin_login_attempts')
-    .select('key,count,reset_at,locked_until')
+    .delete()
+    .in('key', SCRIPT_RATE_LIMIT_KEYS)
   if (error) throw error
-  return data ?? []
 }
 
-async function restoreAdminAttempts(snapshot) {
-  const beforeKeys = new Set(snapshot.map(row => row.key))
-  const { data: afterRows, error: afterError } = await supabaseAdmin
-    .from('admin_login_attempts')
-    .select('key')
-  if (afterError) throw afterError
-
-  const createdKeys = (afterRows ?? [])
-    .map(row => row.key)
-    .filter(key => !beforeKeys.has(key))
-
-  if (createdKeys.length > 0) {
-    const { error } = await supabaseAdmin
-      .from('admin_login_attempts')
-      .delete()
-      .in('key', createdKeys)
-    if (error) throw error
-  }
-
-  if (snapshot.length > 0) {
-    const { error } = await supabaseAdmin
-      .from('admin_login_attempts')
-      .upsert(snapshot, { onConflict: 'key' })
-    if (error) throw error
-  }
-}
-
-async function withAdminAttemptRestore(fn) {
-  const snapshot = await snapshotAdminAttempts()
+async function withScriptRateLimitCleanup(fn) {
+  await clearScriptRateLimitKeys()
   try {
     return await fn()
   } finally {
-    await restoreAdminAttempts(snapshot)
+    await clearScriptRateLimitKeys()
   }
 }
 
@@ -214,6 +203,9 @@ async function setupData() {
 
 async function cleanup() {
   if (created.eventId) {
+    // Explicit participants delete in case the ON DELETE CASCADE FK is ever absent
+    // in the target DB; idempotent (no-op) when the cascade is present.
+    await supabaseAdmin.from('participants').delete().eq('event_id', created.eventId)
     await supabaseAdmin.from('events').delete().eq('id', created.eventId)
   }
   if (created.memberId) {
@@ -284,7 +276,7 @@ try {
   })
 
   await record('POST-04', 'admin login locks after repeated wrong password from one IP', async () => {
-    return withAdminAttemptRestore(async () => {
+    return withScriptRateLimitCleanup(async () => {
       const statuses = await wrongAdminAttempts({ 'x-real-ip': '198.51.100.203' })
       return {
         statuses,
@@ -293,14 +285,17 @@ try {
     })
   })
 
-  await record('POST-05', 'admin login global limit catches rotating x-forwarded-for attempts', async () => {
-    return withAdminAttemptRestore(async () => {
+  await record('POST-05', 'admin login global limit catches attempts from rotating IPs', async () => {
+    return withScriptRateLimitCleanup(async () => {
+      // Each attempt uses a distinct client IP, so no per-IP key ever reaches the
+      // limit; only the shared global:admin-login key accumulates. A 429 on the
+      // final attempt therefore proves the global limit (not per-IP) tripped.
       const statuses = await wrongAdminAttempts(index => ({
-        'x-forwarded-for': `198.51.100.${10 + index}, 203.0.113.10`,
+        'x-real-ip': `198.51.100.${20 + index}`,
       }))
       return {
         statuses,
-        passed: statuses.at(-1) === 429,
+        passed: statuses.at(-1) === 429 && statuses.slice(0, 5).every(status => status === 403),
       }
     })
   })

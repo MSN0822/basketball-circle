@@ -31,3 +31,10 @@ create policy "participants_select_authenticated" on participants
   for select
   to authenticated
   using (true);
+
+-- 注意: 上の members_select_authenticated / participants_select_authenticated
+-- (using true) は中間状態。最終状態は 20260603030000_public_participants_view.sql が
+-- members_select_own へ置換し、participants_select_authenticated を削除する
+-- (participants は participants_public view 経由でのみ公開読取になる)。
+-- 本ファイルを zz ファイルの後に単独再実行すると user_code が authenticated に
+-- 再露出するため禁止。最終状態は check-migration-status.mjs の Q9 で検証すること。

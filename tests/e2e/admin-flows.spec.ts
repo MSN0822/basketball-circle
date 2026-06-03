@@ -347,13 +347,22 @@ test.describe('admin-flows E2E', () => {
         .from('admin_login_attempts')
         .select('key')
       expect(error).toBeNull()
-      expect(attempts?.length).toBe(1)
+      // A single failed verify records two rate-limit rows: the per-IP key and
+      // the shared global key (see app/api/admin/verify/route.ts rateLimitKeys).
+      // The IP key value is environment-dependent (ip:unknown when no proxy header is
+      // present, ip:::1 behind a local `next start`, ip:<addr> on Vercel), so assert the
+      // shape — exactly one global key plus one ip: key — rather than the literal address.
+      const recordedKeys = (attempts ?? []).map(a => a.key).sort()
+      expect(recordedKeys).toHaveLength(2)
+      expect(recordedKeys).toContain('global:admin-login')
+      expect(recordedKeys.some(key => key.startsWith('ip:'))).toBe(true)
 
       const lockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      // Lock both rows so the subsequent verify trips anyLocked() regardless of order.
       const { error: updateError } = await supabaseAdmin
         .from('admin_login_attempts')
         .update({ count: 5, locked_until: lockedUntil })
-        .eq('key', attempts![0].key)
+        .neq('key', '')
       expect(updateError).toBeNull()
 
       const locked = await appJson(baseURL, '/api/admin/verify', {
