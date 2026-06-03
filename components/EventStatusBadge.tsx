@@ -25,7 +25,7 @@ export default function EventStatusBadge({ event, initialActiveCount }: Props) {
         .eq('id', event.id)
         .single<Event>(),
       supabase
-        .from('participants')
+        .from('participants_public')
         .select('id', { count: 'exact', head: true })
         .eq('event_id', event.id)
         .eq('status', 'active'),
@@ -62,6 +62,11 @@ export default function EventStatusBadge({ event, initialActiveCount }: Props) {
       supabase.removeChannel(eventChannel)
     }
   }, [event.id, reload])
+
+  useEffect(() => {
+    const interval = window.setInterval(reload, 15_000)
+    return () => { window.clearInterval(interval) }
+  }, [reload])
 
   useEffect(() => {
     function handleParticipantsChanged(browserEvent: globalThis.Event) {

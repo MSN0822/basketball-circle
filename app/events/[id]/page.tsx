@@ -1,4 +1,4 @@
-import { Event, Participant } from '@/lib/supabase'
+import { Event, PublicParticipant } from '@/lib/supabase'
 import { getServerSupabase } from '@/lib/supabase-server'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,15 +16,15 @@ async function getEvent(id: string): Promise<Event | null> {
   return data
 }
 
-async function getParticipants(eventId: string): Promise<Participant[]> {
+async function getParticipants(eventId: string): Promise<PublicParticipant[]> {
   const supabase = getServerSupabase()
   const { data } = await supabase
-    .from('participants')
-    .select('*')
+    .from('participants_public')
+    .select('id,event_id,name,member_id,status,slot_number,created_at,display_code')
     .eq('event_id', eventId)
     .neq('status', 'cancelled')
     .order('slot_number', { ascending: true })
-  return data ?? []
+  return (data as PublicParticipant[] | null) ?? []
 }
 
 function formatDateRange(startStr: string, endStr: string | null): string {

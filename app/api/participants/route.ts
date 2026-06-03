@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateUserCode, Participant } from '@/lib/supabase'
+import { generateUserCode, Participant, PublicParticipant } from '@/lib/supabase'
 import { getAuthenticatedMember } from '@/lib/api-auth'
 import { getServerSupabase } from '@/lib/supabase-server'
 import { isValidUuid } from '@/lib/validators'
@@ -13,11 +13,65 @@ type JoinEventResult = {
   participant?: Participant
 }
 
-function removePrivateParticipantFields(participant: Participant | undefined) {
+function guestDisplayCode(userCode: string) {
+  return userCode.startsWith('guest:') ? userCode.split(':').at(-1) ?? null : null
+}
+
+function toPublicParticipant(participant: Participant | null | undefined): PublicParticipant | null {
   if (!participant) return null
-  const safeParticipant: Partial<Participant> = { ...participant }
-  delete safeParticipant.user_code
-  return safeParticipant
+  const { user_code: userCode, ...safeParticipant } = participant
+  return {
+    ...safeParticipant,
+    display_code: guestDisplayCode(userCode),
+  }
+}
+
+export async function GET(req: NextRequest) {
+  const eventId = req.nextUrl.searchParams.get('event_id')
+  const requestedMemberId = req.nextUrl.searchParams.get('member_id')
+  if (!eventId) {
+    return NextResponse.json({ error: 'event_id は必須です' }, { status: 400 })
+  }
+  if (!isValidUuid(eventId)) {
+    return NextResponse.json({ error: 'event_id の形式が正しくありません' }, { status: 400 })
+  }
+
+  const auth = await getAuthenticatedMember(req, requestedMemberId)
+  if (!auth.member) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status })
+  }
+
+  const canonicalMemberId = auth.member.id
+  const [{ data: participation, error: participationError }, { data: guests, error: guestsError }] =
+    await Promise.all([
+      supabase
+        .from('participants')
+        .select('*')
+        .eq('event_id', eventId)
+        .eq('member_id', canonicalMemberId)
+        .neq('status', 'cancelled')
+        .limit(1)
+        .maybeSingle<Participant>(),
+      supabase
+        .from('participants')
+        .select('*')
+        .eq('event_id', eventId)
+        .neq('status', 'cancelled')
+        .like('user_code', `guest:${canonicalMemberId}:%`)
+        .order('created_at', { ascending: true }),
+    ])
+
+  if (participationError || guestsError) {
+    return NextResponse.json(
+      { error: participationError?.message ?? guestsError?.message ?? '参加情報の取得に失敗しました' },
+      { status: 500 },
+    )
+  }
+
+  return NextResponse.json({
+    participation: toPublicParticipant(participation),
+    guests: ((guests as Participant[] | null) ?? []).map(toPublicParticipant).filter(Boolean),
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -69,7 +123,7 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({
-    participant: removePrivateParticipantFields(result.participant),
+    participant: toPublicParticipant(result.participant),
     waitlist: false,
     temporary_code: temporaryCode,
   })

@@ -30,6 +30,10 @@ export interface Participant {
   created_at: string
 }
 
+export type PublicParticipant = Omit<Participant, 'user_code'> & {
+  display_code: string | null
+}
+
 export interface Member {
   id: string
   member_number: string

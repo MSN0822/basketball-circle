@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Participant, Event, Member } from '@/lib/supabase'
+import { Event, Member, PublicParticipant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
 
 const supabase = getSupabase()
@@ -9,16 +9,11 @@ import { Badge } from '@/components/ui/badge'
 
 interface Props {
   event: Event
-  initialParticipants: Participant[]
-}
-
-function getTemporaryGuestCode(participant: Participant) {
-  if (!participant.user_code.startsWith('guest:')) return null
-  return participant.user_code.split(':').at(-1) ?? null
+  initialParticipants: PublicParticipant[]
 }
 
 export default function ParticipantList({ event, initialParticipants }: Props) {
-  const [participants, setParticipants] = useState<Participant[]>(initialParticipants)
+  const [participants, setParticipants] = useState<PublicParticipant[]>(initialParticipants)
   const [currentEvent, setCurrentEvent] = useState<Event>(event)
   const [member, setMember] = useState<Member | null>(null)
 
@@ -38,13 +33,13 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
 
   const reloadParticipants = useCallback(async () => {
     const { data } = await supabase
-      .from('participants')
-      .select('*')
+      .from('participants_public')
+      .select('id,event_id,name,member_id,status,slot_number,created_at,display_code')
       .eq('event_id', event.id)
       .neq('status', 'cancelled')
       .order('slot_number', { ascending: true })
 
-    if (data) setParticipants(data)
+    if (data) setParticipants(data as PublicParticipant[])
   }, [event.id])
 
   const reloadEvent = useCallback(async () => {
@@ -72,6 +67,14 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
 
     return () => { supabase.removeChannel(channel) }
   }, [event.id, reloadEvent, reloadParticipants])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      reloadParticipants()
+      reloadEvent()
+    }, 15_000)
+    return () => { window.clearInterval(interval) }
+  }, [reloadEvent, reloadParticipants])
 
   useEffect(() => {
     const channel = supabase
@@ -144,9 +147,9 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
                 {member && p.member_id === member.id && (
                   <span className="ml-2 text-xs text-blue-600">（自分）</span>
                 )}
-                {getTemporaryGuestCode(p) && (
+                {p.display_code && (
                   <span className="ml-2 text-xs text-muted-foreground">
-                    臨時ID: {getTemporaryGuestCode(p)}
+                    臨時ID: {p.display_code}
                   </span>
                 )}
               </span>
@@ -179,9 +182,9 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
                   {member && p.member_id === member.id && (
                     <span className="ml-2 text-xs text-blue-600">（自分）</span>
                   )}
-                  {getTemporaryGuestCode(p) && (
+                  {p.display_code && (
                     <span className="ml-2 text-xs">
-                      臨時ID: {getTemporaryGuestCode(p)}
+                      臨時ID: {p.display_code}
                     </span>
                   )}
                 </span>

@@ -8,18 +8,42 @@ import {
 } from '@/lib/api-auth'
 import { clearFailure, isLocked, recordFailure } from '@/lib/admin-rate-limit'
 
+const GLOBAL_ADMIN_LOGIN_KEY = 'global:admin-login'
+
 export async function DELETE() {
   const res = NextResponse.json({ ok: true })
   clearAdminCookie(res)
   return res
 }
 
-function clientKey(req: NextRequest): string {
-  return (
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    req.headers.get('x-real-ip') ||
-    'unknown'
-  )
+function clientIdentifier(req: NextRequest): string {
+  const realIp = req.headers.get('x-real-ip')?.trim()
+  if (realIp) return realIp
+
+  const forwardedFor = req.headers
+    .get('x-forwarded-for')
+    ?.split(',')
+    .map(value => value.trim())
+    .filter(Boolean)
+
+  return forwardedFor?.at(-1) ?? 'unknown'
+}
+
+function rateLimitKeys(req: NextRequest): string[] {
+  return [`ip:${clientIdentifier(req)}`, GLOBAL_ADMIN_LOGIN_KEY]
+}
+
+async function anyLocked(keys: string[]) {
+  const locked = await Promise.all(keys.map(key => isLocked(key)))
+  return locked.some(Boolean)
+}
+
+async function recordFailures(keys: string[]) {
+  await Promise.all(keys.map(key => recordFailure(key)))
+}
+
+async function clearFailures(keys: string[]) {
+  await Promise.all(keys.map(key => clearFailure(key)))
 }
 
 function clearAdminCookie(res: NextResponse) {
@@ -42,19 +66,25 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const key = clientKey(req)
-  if (await isLocked(key)) {
+  const keys = rateLimitKeys(req)
+  if (await anyLocked(keys)) {
     return NextResponse.json({ error: 'Too many attempts' }, { status: 429 })
   }
 
-  const { password } = await req.json()
+  const body = await req.json().catch(() => null) as { password?: unknown } | null
+  if (!body || typeof body !== 'object' || !('password' in body)) {
+    await recordFailures(keys)
+    return NextResponse.json({ error: 'password は必須です' }, { status: 400 })
+  }
+
+  const { password } = body
   if (safeCompare(password, process.env.ADMIN_PASSWORD)) {
     const token = createAdminSessionToken()
     if (!token) {
       return NextResponse.json({ error: 'Admin auth is not configured' }, { status: 500 })
     }
 
-    await clearFailure(key)
+    await clearFailures(keys)
     const res = NextResponse.json({ ok: true })
     res.cookies.set({
       name: ADMIN_SESSION_COOKIE,
@@ -67,6 +97,6 @@ export async function POST(req: NextRequest) {
     })
     return res
   }
-  await recordFailure(key)
+  await recordFailures(keys)
   return NextResponse.json({ error: '認証エラー' }, { status: 403 })
 }

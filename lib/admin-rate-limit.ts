@@ -20,6 +20,7 @@ type AttemptRow = {
 type AttemptStore = {
   get(key: string): Promise<AttemptState | null>
   set(key: string, state: AttemptState): Promise<void>
+  incrementFailure?(key: string): Promise<AttemptState>
   delete(key: string): Promise<void>
   clear(): Promise<void>
 }
@@ -66,6 +67,18 @@ function createSupabaseStore(): AttemptStore {
         })
 
       if (error) throw error
+    },
+    async incrementFailure(key) {
+      const { data, error } = await getServerSupabase()
+        .rpc('record_admin_login_failure', {
+          p_key: key,
+          p_attempt_window_ms: ATTEMPT_WINDOW_MS,
+          p_lock_ms: LOCK_MS,
+          p_max_attempts: MAX_ATTEMPTS,
+        })
+
+      if (error) throw error
+      return rowToState(data as AttemptRow)
     },
     async delete(key) {
       const { error } = await getServerSupabase()
@@ -129,6 +142,11 @@ export async function isLocked(key: string, now = Date.now()): Promise<boolean> 
 }
 
 export async function recordFailure(key: string, now = Date.now()) {
+  if (store.incrementFailure && process.env.NODE_ENV !== 'test') {
+    await store.incrementFailure(key)
+    return
+  }
+
   const current = await getAttemptState(key, now)
   const nextCount = current.count + 1
   await store.set(key, {

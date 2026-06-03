@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Event, Participant } from '@/lib/supabase'
+import { Event, PublicParticipant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -39,7 +39,7 @@ function formatDateRange(startStr: string, endStr: string | null): string {
 export default function EventList({ events }: { events: Event[] }) {
   const router = useRouter()
   const [realtimeEvents, setRealtimeEvents] = useState<Event[] | null>(null)
-  const [myParticipations, setMyParticipations] = useState<Record<string, Participant>>({})
+  const [myParticipations, setMyParticipations] = useState<Record<string, PublicParticipant>>({})
   const visibleEvents = realtimeEvents ?? events
 
   const reloadEvents = useCallback(async () => {
@@ -64,13 +64,13 @@ export default function EventList({ events }: { events: Event[] }) {
       if (!member) return
 
       const { data: participations } = await supabase
-        .from('participants')
-        .select('*')
+        .from('participants_public')
+        .select('id,event_id,name,member_id,status,slot_number,created_at,display_code')
         .eq('member_id', member.id)
         .in('status', ['active', 'waitlist'])
 
       if (participations) {
-        const map: Record<string, Participant> = {}
+        const map: Record<string, PublicParticipant> = {}
         participations.forEach(p => { map[p.event_id] = p })
         setMyParticipations(map)
       }

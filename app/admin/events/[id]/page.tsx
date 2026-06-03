@@ -95,12 +95,17 @@ export default function AdminEventDetailPage() {
         : event.status === 'accepting'
           ? 'closed'
           : 'accepting'
-    await fetch('/api/admin/events', {
+    const res = await fetch('/api/admin/events', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: event.id, status: newStatus }),
     })
-    loadDetail()
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      showToast(`状態の変更に失敗しました: ${data.error ?? res.status}`)
+      return
+    }
+    await loadDetail()
   }
 
   function handleDelete() {

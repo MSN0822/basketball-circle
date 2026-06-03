@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Plus, X } from 'lucide-react'
-import { Event, Member, Participant } from '@/lib/supabase'
+import { Event, Member, PublicParticipant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,17 +24,19 @@ interface Props {
 
 type JoinResponse = {
   error?: string
-  participant?: Participant
+  participant?: PublicParticipant
   temporary_code?: string
   waitlist?: boolean
 }
 
-function guestPrefix(memberId: string) {
-  return `guest:${memberId}:`
+type MineResponse = {
+  error?: string
+  participation?: PublicParticipant | null
+  guests?: PublicParticipant[]
 }
 
-function getTemporaryCode(participant: Participant) {
-  return participant.user_code.split(':').at(-1) ?? participant.user_code
+function getTemporaryCode(participant: PublicParticipant) {
+  return participant.display_code ?? '発行済み'
 }
 
 function getFamilyName(memberName: string) {
@@ -57,8 +59,8 @@ export default function JoinForm({ event }: Props) {
   const [action, setAction] = useState<'join' | 'cancel' | string | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const [participation, setParticipation] = useState<Participant | null>(null)
-  const [guests, setGuests] = useState<Participant[]>([])
+  const [participation, setParticipation] = useState<PublicParticipant | null>(null)
+  const [guests, setGuests] = useState<PublicParticipant[]>([])
   const [guestNames, setGuestNames] = useState<string[]>([])
   const [activeCount, setActiveCount] = useState(0)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
@@ -66,27 +68,25 @@ export default function JoinForm({ event }: Props) {
 
   const loadParticipation = useCallback(async (memberId: string) => {
     const { data } = await supabase
-      .from('participants')
-      .select('*')
+      .from('participants_public')
+      .select('id,event_id,name,member_id,status,slot_number,created_at,display_code')
       .eq('event_id', event.id)
       .eq('member_id', memberId)
       .neq('status', 'cancelled')
       .limit(1)
       .maybeSingle()
 
-    setParticipation((data as Participant | null) ?? null)
+    setParticipation((data as PublicParticipant | null) ?? null)
   }, [event.id])
 
   const loadGuests = useCallback(async (memberId: string) => {
-    const { data } = await supabase
-      .from('participants')
-      .select('*')
-      .eq('event_id', event.id)
-      .neq('status', 'cancelled')
-      .like('user_code', `${guestPrefix(memberId)}%`)
-      .order('created_at', { ascending: true })
+    const res = await fetch(`/api/participants?event_id=${encodeURIComponent(event.id)}&member_id=${encodeURIComponent(memberId)}`, {
+      headers: await getJsonAuthHeaders(),
+    })
+    if (!res.ok) return
 
-    const fetchedGuests = (data as Participant[] | null) ?? []
+    const data = await res.json().catch(() => ({})) as MineResponse
+    const fetchedGuests = data.guests ?? []
     setGuests(fetchedGuests)
     setGuestNames(current => {
       if (current.some(name => name.trim())) return current
@@ -107,7 +107,7 @@ export default function JoinForm({ event }: Props) {
 
   const loadActiveCount = useCallback(async () => {
     const { count } = await supabase
-      .from('participants')
+      .from('participants_public')
       .select('id', { count: 'exact', head: true })
       .eq('event_id', event.id)
       .eq('status', 'active')
@@ -150,6 +150,15 @@ export default function JoinForm({ event }: Props) {
 
     return () => { supabase.removeChannel(channel) }
   }, [event.id, member, reloadMine])
+
+  useEffect(() => {
+    if (!member) return
+
+    const interval = window.setInterval(() => {
+      reloadMine(member.id)
+    }, 15_000)
+    return () => { window.clearInterval(interval) }
+  }, [member, reloadMine])
 
   useEffect(() => {
     const channel = supabase
@@ -307,7 +316,7 @@ export default function JoinForm({ event }: Props) {
     window.dispatchEvent(new CustomEvent('participants-changed', { detail: { eventId: event.id } }))
   }
 
-  async function handleCancelGuest(guest: Participant) {
+  async function handleCancelGuest(guest: PublicParticipant) {
     if (!member) return
 
     setAction(guest.id)

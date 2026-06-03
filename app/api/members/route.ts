@@ -50,10 +50,15 @@ async function legacyRegister(name: string, authUserId: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const { name, auth_user_id } = await req.json()
-  const trimmedName = name?.trim()
+  const body = await req.json().catch(() => null) as { name?: unknown; auth_user_id?: unknown } | null
+  if (!body) {
+    return NextResponse.json({ error: 'name と auth_user_id は必須です' }, { status: 400 })
+  }
 
-  if (!trimmedName || !auth_user_id) {
+  const { name, auth_user_id } = body
+  const trimmedName = typeof name === 'string' ? name.trim() : ''
+
+  if (!trimmedName || typeof auth_user_id !== 'string' || !auth_user_id) {
     return NextResponse.json({ error: 'name と auth_user_id は必須です' }, { status: 400 })
   }
   if (trimmedName.length > MAX_NAME_LENGTH) {
@@ -100,10 +105,15 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'ログインが必要です' }, { status: 401 })
   }
 
-  const { member_id, name } = await req.json()
-  const trimmedName = name?.trim()
+  const body = await req.json().catch(() => null) as { member_id?: unknown; name?: unknown } | null
+  if (!body) {
+    return NextResponse.json({ error: 'member_id と name は必須です' }, { status: 400 })
+  }
 
-  if (!member_id || !trimmedName) {
+  const { member_id, name } = body
+  const trimmedName = typeof name === 'string' ? name.trim() : ''
+
+  if (typeof member_id !== 'string' || !member_id || !trimmedName) {
     return NextResponse.json({ error: 'member_id と name は必須です' }, { status: 400 })
   }
   if (!isValidUuid(member_id)) {
