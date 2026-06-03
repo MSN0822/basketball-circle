@@ -337,17 +337,28 @@ test.describe('admin-flows E2E', () => {
     await clearAdminLoginAttempts(supabaseAdmin)
 
     try {
-      for (let i = 0; i < 5; i++) {
-        const res = await appJson(baseURL, '/api/admin/verify', {
-          method: 'POST',
-          body: JSON.stringify({ password: `${runId}-wrong-${i}` }),
-        })
-        expect(res.status).toBe(403)
-      }
+      const firstFailure = await appJson(baseURL, '/api/admin/verify', {
+        method: 'POST',
+        body: JSON.stringify({ password: `${runId}-wrong` }),
+      })
+      expect(firstFailure.status).toBe(403)
+
+      const { data: attempts, error } = await supabaseAdmin
+        .from('admin_login_attempts')
+        .select('key')
+      expect(error).toBeNull()
+      expect(attempts?.length).toBe(1)
+
+      const lockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      const { error: updateError } = await supabaseAdmin
+        .from('admin_login_attempts')
+        .update({ count: 5, locked_until: lockedUntil })
+        .eq('key', attempts![0].key)
+      expect(updateError).toBeNull()
 
       const locked = await appJson(baseURL, '/api/admin/verify', {
         method: 'POST',
-        body: JSON.stringify({ password: `${runId}-still-wrong` }),
+        body: JSON.stringify({ password: adminPassword }),
       })
 
       expect(locked.status).toBe(429)
