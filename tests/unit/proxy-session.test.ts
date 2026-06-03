@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { createAdminSessionToken } from '@/lib/api-auth'
-import { verifyAdminSessionTokenEdge } from '@/proxy'
+import { createAdminSessionToken, signAdminSessionPayload } from '@/lib/api-auth'
+import { signAdminSessionPayloadEdge, verifyAdminSessionTokenEdge } from '@/proxy'
 
 // 発行側（lib/api-auth.ts, Node の node:crypto）と
 // 検証側（proxy.ts, Edge の Web Crypto）が同じ秘密鍵で等価に動作することを保証する。
@@ -10,6 +10,11 @@ beforeAll(() => {
 
 describe('admin session token: api-auth (Node) ↔ proxy (Edge) equivalence', () => {
   const now = 1_700_000_000_000
+  const payload = '1700028800.fixed-nonce'
+
+  it('signs the same payload identically in Node and Edge runtimes', async () => {
+    expect(signAdminSessionPayload(payload)).toBe(await signAdminSessionPayloadEdge(payload))
+  })
 
   it('a token issued by api-auth is accepted by the proxy verifier', async () => {
     const token = createAdminSessionToken(now)

@@ -20,7 +20,7 @@ function toBase64Url(buffer: ArrayBuffer): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-async function signAdminSessionPayload(payload: string): Promise<string | null> {
+export async function signAdminSessionPayloadEdge(payload: string): Promise<string | null> {
   const secret = process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD
   if (!secret) return null
 
@@ -50,7 +50,7 @@ export async function verifyAdminSessionTokenEdge(
   const expiresAt = Number(expiresAtRaw)
   if (!Number.isInteger(expiresAt) || expiresAt <= Math.floor(now / 1000)) return false
 
-  const expectedSignature = await signAdminSessionPayload(`${expiresAtRaw}.${nonce}`)
+  const expectedSignature = await signAdminSessionPayloadEdge(`${expiresAtRaw}.${nonce}`)
   return expectedSignature ? constantTimeEqual(signature, expectedSignature) : false
 }
 

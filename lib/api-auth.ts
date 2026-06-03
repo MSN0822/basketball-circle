@@ -14,7 +14,7 @@ function getAdminSessionSecret(): string | null {
   return process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD || null
 }
 
-function signAdminSessionPayload(payload: string): string | null {
+export function signAdminSessionPayload(payload: string): string | null {
   const secret = getAdminSessionSecret()
   if (!secret) return null
   return crypto.createHmac('sha256', secret).update(payload).digest('base64url')
