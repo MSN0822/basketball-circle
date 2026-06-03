@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { supabase, Event, Participant } from '@/lib/supabase'
+import { Event, Participant } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -53,29 +53,17 @@ export default function AdminEventDetailPage() {
   const [confirmLoading, setConfirmLoading] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  const loadEvent = useCallback(async () => {
-    const { data } = await supabase
-      .from('events')
-      .select('*')
-      .eq('id', eventId)
-      .single<Event>()
-    if (!data) {
+  const loadDetail = useCallback(async () => {
+    const res = await fetch(`/api/admin/events?id=${eventId}`)
+    if (!res.ok) {
       router.replace('/admin')
       return
     }
-    setEvent(data)
+    const data = await res.json() as { event: Event; participants: Participant[] }
+    setEvent(data.event)
+    setParticipants(data.participants ?? [])
     setLoading(false)
   }, [eventId, router])
-
-  const loadParticipants = useCallback(async () => {
-    const { data } = await supabase
-      .from('participants')
-      .select('*')
-      .eq('event_id', eventId)
-      .neq('status', 'cancelled')
-      .order('slot_number', { ascending: true })
-    setParticipants(data ?? [])
-  }, [eventId])
 
   useEffect(() => {
     // パスワード検証
@@ -84,12 +72,11 @@ export default function AdminEventDetailPage() {
         router.replace('/admin')
         return
       }
-      loadEvent()
-      loadParticipants()
+      loadDetail()
     }).catch(() => {
       router.replace('/admin')
     })
-  }, [eventId, router, loadEvent, loadParticipants])
+  }, [eventId, router, loadDetail])
 
   function showConfirm(message: string, onConfirm: () => Promise<void>) {
     setConfirmState({ message, onConfirm })
@@ -113,7 +100,7 @@ export default function AdminEventDetailPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: event.id, status: newStatus }),
     })
-    loadEvent()
+    loadDetail()
   }
 
   function handleDelete() {
@@ -148,8 +135,7 @@ export default function AdminEventDetailPage() {
         showToast(`キャンセルに失敗しました: ${data.error ?? res.status}`)
         return
       }
-      await loadParticipants()
-      loadEvent()
+      await loadDetail()
     })
   }
 

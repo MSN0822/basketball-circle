@@ -160,6 +160,47 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ event: data })
 }
 
+export async function GET(req: NextRequest) {
+  if (!checkAdmin(req)) {
+    return jsonError('隱崎ｨｼ繧ｨ繝ｩ繝ｼ', 403)
+  }
+
+  const id = req.nextUrl.searchParams.get('id')
+  if (id !== null) {
+    if (!isValidUuid(id)) {
+      return jsonError('id 縺ｮ蠖｢蠑上′豁｣縺励￥縺ゅｊ縺ｾ縺帙ｓ')
+    }
+
+    const { data: event, error: eventError } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', id)
+      .single<Event>()
+
+    if (eventError || !event) {
+      return jsonError('繧､繝吶Φ繝医′隕九▽縺九ｊ縺ｾ縺帙ｓ', 404)
+    }
+
+    const { data: participants, error: participantsError } = await supabase
+      .from('participants')
+      .select('*')
+      .eq('event_id', id)
+      .neq('status', 'cancelled')
+      .order('slot_number', { ascending: true })
+
+    if (participantsError) return jsonError(participantsError.message, 500)
+    return NextResponse.json({ event, participants: participants ?? [] })
+  }
+
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .order('event_date', { ascending: true })
+
+  if (error) return jsonError(error.message, 500)
+  return NextResponse.json({ events: data ?? [] })
+}
+
 export async function DELETE(req: NextRequest) {
   if (!checkAdmin(req)) {
     return jsonError('認証エラー', 403)
