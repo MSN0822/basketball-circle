@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Event, Participant } from '@/lib/supabase'
+import { Event } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
 
 const supabase = getSupabase()
@@ -15,6 +15,7 @@ type Props = {
 export default function EventStatusBadge({ event, initialActiveCount }: Props) {
   const [currentEvent, setCurrentEvent] = useState(event)
   const [activeCount, setActiveCount] = useState(initialActiveCount)
+  const [now, setNow] = useState(0)
 
   const reload = useCallback(async () => {
     const [{ data: nextEvent }, { count }] = await Promise.all([
@@ -72,9 +73,18 @@ export default function EventStatusBadge({ event, initialActiveCount }: Props) {
     return () => { window.removeEventListener('participants-changed', handleParticipantsChanged) }
   }, [event.id, reload])
 
-  const now = Date.now()
+  useEffect(() => {
+    function updateNow() {
+      setNow(Date.now())
+    }
+
+    updateNow()
+    const interval = window.setInterval(updateNow, 60_000)
+    return () => { window.clearInterval(interval) }
+  }, [])
+
   const isFull = activeCount >= currentEvent.max_participants
-  const isPastDeadline = Boolean(currentEvent.closes_at && new Date(currentEvent.closes_at).getTime() <= now)
+  const isPastDeadline = Boolean(now && currentEvent.closes_at && new Date(currentEvent.closes_at).getTime() <= now)
   const isClosed = currentEvent.status !== 'accepting' || isFull || isPastDeadline
 
   return (

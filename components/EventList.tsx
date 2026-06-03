@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Event, Participant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
@@ -38,21 +38,18 @@ function formatDateRange(startStr: string, endStr: string | null): string {
 
 export default function EventList({ events }: { events: Event[] }) {
   const router = useRouter()
-  const [visibleEvents, setVisibleEvents] = useState(events)
+  const [realtimeEvents, setRealtimeEvents] = useState<Event[] | null>(null)
   const [myParticipations, setMyParticipations] = useState<Record<string, Participant>>({})
+  const visibleEvents = realtimeEvents ?? events
 
-  useEffect(() => {
-    setVisibleEvents(events)
-  }, [events])
-
-  async function reloadEvents() {
+  const reloadEvents = useCallback(async () => {
     const { data } = await supabase
       .from('events')
       .select('*')
       .order('event_date', { ascending: true })
 
-    if (data) setVisibleEvents(data.filter(event => event.status !== 'draft'))
-  }
+    if (data) setRealtimeEvents(data.filter(event => event.status !== 'draft'))
+  }, [])
 
   useEffect(() => {
     async function load() {
@@ -92,7 +89,7 @@ export default function EventList({ events }: { events: Event[] }) {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [])
+  }, [reloadEvents])
 
   return (
     <div className="space-y-4">

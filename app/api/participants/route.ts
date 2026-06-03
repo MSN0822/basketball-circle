@@ -13,6 +13,13 @@ type JoinEventResult = {
   participant?: Participant
 }
 
+function removePrivateParticipantFields(participant: Participant | undefined) {
+  if (!participant) return null
+  const safeParticipant: Partial<Participant> = { ...participant }
+  delete safeParticipant.user_code
+  return safeParticipant
+}
+
 export async function POST(req: NextRequest) {
   const { event_id, name, member_id, guest } = await req.json()
   const auth = await getAuthenticatedMember(req, member_id ?? null)
@@ -61,10 +68,8 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { user_code: _omittedUserCode, ...safeParticipant } = result.participant ?? {}
-
   return NextResponse.json({
-    participant: result.participant ? safeParticipant : null,
+    participant: removePrivateParticipantFields(result.participant),
     waitlist: false,
     temporary_code: temporaryCode,
   })
