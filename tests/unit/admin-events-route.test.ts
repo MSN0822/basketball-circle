@@ -81,6 +81,18 @@ describe('POST /api/admin/events', () => {
     expect(locationCase.supabase.spies.insert).not.toHaveBeenCalled()
   })
 
+  it('rejects blank-looking title and location values', async () => {
+    const titleCase = await loadRoute()
+    const titleRes = await titleCase.POST(jsonRequest({ ...validCreateBody, title: '   ' }))
+    expect(titleRes.status).toBe(400)
+    expect(titleCase.supabase.spies.insert).not.toHaveBeenCalled()
+
+    const locationCase = await loadRoute()
+    const locationRes = await locationCase.POST(jsonRequest({ ...validCreateBody, location: '   ' }))
+    expect(locationRes.status).toBe(400)
+    expect(locationCase.supabase.spies.insert).not.toHaveBeenCalled()
+  })
+
   it('rejects non-http location_url schemes and overlong URLs', async () => {
     const javascriptCase = await loadRoute()
     const javascriptRes = await javascriptCase.POST(jsonRequest({ ...validCreateBody, location_url: 'javascript:alert(1)' }))

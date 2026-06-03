@@ -41,6 +41,11 @@ describe('safeCompare', () => {
     expect(safeCompare(undefined, undefined)).toBe(false)
   })
 
+  it('returns false for non-string inputs without throwing', () => {
+    expect(safeCompare({ value: 'abc' }, 'abc')).toBe(false)
+    expect(safeCompare(['abc'], 'abc')).toBe(false)
+  })
+
   it('returns false for empty strings (length 0 is never "comparable")', () => {
     expect(safeCompare('', '')).toBe(false)
     expect(safeCompare('', 'abc')).toBe(false)

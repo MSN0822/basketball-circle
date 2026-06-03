@@ -92,6 +92,54 @@ const checks = [
     },
     evidence: rows => `anon_has_execute=${formatValue(rows[0]?.anon_has_execute)}`,
   },
+  {
+    id: 'Q8',
+    item: 'private RPC execute restricted to service_role',
+    sql: `
+      SELECT
+        NOT has_function_privilege('anon','public.join_event(uuid,text,text,uuid,boolean)','execute')
+        AND NOT has_function_privilege('authenticated','public.join_event(uuid,text,text,uuid,boolean)','execute')
+        AND NOT has_function_privilege('anon','public.cancel_participant(uuid)','execute')
+        AND NOT has_function_privilege('authenticated','public.cancel_participant(uuid)','execute')
+        AND NOT has_function_privilege('anon','public.update_member_name(uuid, uuid, text)','execute')
+        AND NOT has_function_privilege('authenticated','public.update_member_name(uuid, uuid, text)','execute')
+        AND NOT has_function_privilege('anon','public.register_member(text, uuid)','execute')
+        AND NOT has_function_privilege('authenticated','public.register_member(text, uuid)','execute')
+        AND has_function_privilege('service_role','public.join_event(uuid,text,text,uuid,boolean)','execute')
+        AND has_function_privilege('service_role','public.cancel_participant(uuid)','execute')
+        AND has_function_privilege('service_role','public.update_member_name(uuid, uuid, text)','execute')
+        AND has_function_privilege('service_role','public.register_member(text, uuid)','execute')
+        AS applied
+    `,
+    interpret: rows => booleanStatus(rows[0]?.applied),
+    evidence: rows => `applied=${formatValue(rows[0]?.applied)}`,
+  },
+  {
+    id: 'Q9',
+    item: 'members and participants select require authenticated role',
+    sql: `
+      SELECT
+        EXISTS(
+          SELECT 1 FROM pg_policies
+          WHERE schemaname='public'
+            AND tablename='members'
+            AND policyname='members_select_authenticated'
+            AND cmd='SELECT'
+            AND roles::text = '{authenticated}'
+        )
+        AND EXISTS(
+          SELECT 1 FROM pg_policies
+          WHERE schemaname='public'
+            AND tablename='participants'
+            AND policyname='participants_select_authenticated'
+            AND cmd='SELECT'
+            AND roles::text = '{authenticated}'
+        )
+        AS applied
+    `,
+    interpret: rows => booleanStatus(rows[0]?.applied),
+    evidence: rows => `applied=${formatValue(rows[0]?.applied)}`,
+  },
 ]
 
 const additionalQueries = [
@@ -104,6 +152,16 @@ const additionalQueries = [
     id: 'A2',
     title: 'register_member execute privileges',
     sql: "SELECT has_function_privilege('anon','public.register_member(text, uuid)','execute') AS anon_exec, has_function_privilege('authenticated','public.register_member(text, uuid)','execute') AS auth_exec",
+  },
+  {
+    id: 'A3',
+    title: 'private RPC execute privileges',
+    sql: "SELECT has_function_privilege('anon','public.join_event(uuid,text,text,uuid,boolean)','execute') AS anon_join, has_function_privilege('authenticated','public.join_event(uuid,text,text,uuid,boolean)','execute') AS auth_join, has_function_privilege('anon','public.cancel_participant(uuid)','execute') AS anon_cancel, has_function_privilege('authenticated','public.cancel_participant(uuid)','execute') AS auth_cancel, has_function_privilege('anon','public.update_member_name(uuid, uuid, text)','execute') AS anon_update_member, has_function_privilege('authenticated','public.update_member_name(uuid, uuid, text)','execute') AS auth_update_member",
+  },
+  {
+    id: 'A4',
+    title: 'members policies',
+    sql: "SELECT policyname, cmd, roles::text FROM pg_policies WHERE schemaname='public' AND tablename='members' ORDER BY policyname",
   },
 ]
 

@@ -92,7 +92,10 @@ export async function POST(req: NextRequest) {
     status = 'accepting',
   } = body
 
-  if (!title || !event_date || !event_end_date || !location) {
+  const trimmedTitle = typeof title === 'string' ? title.trim() : ''
+  const trimmedLocation = typeof location === 'string' ? location.trim() : ''
+
+  if (!trimmedTitle || !event_date || !event_end_date || !trimmedLocation) {
     return jsonError('title, event_date, event_end_date, location は必須です')
   }
 
@@ -139,10 +142,10 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('events')
     .insert({
-      title,
+      title: trimmedTitle,
       event_date: parsedStart,
       event_end_date: parsedEnd,
-      location,
+      location: trimmedLocation,
       location_url: parsedLocationUrl,
       closes_at: parsedClosesAt,
       publishes_at: parsedPublishesAt,
@@ -187,6 +190,8 @@ export async function PATCH(req: NextRequest) {
 
   const body = await req.json()
   const { id, status, title, event_date, event_end_date, location, location_url, closes_at, publishes_at, max_participants, threshold } = body
+  const trimmedPatchTitle = typeof title === 'string' ? title.trim() : title
+  const trimmedPatchLocation = typeof location === 'string' ? location.trim() : location
 
   if (!id) {
     return jsonError('id は必須です')
@@ -210,11 +215,13 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (title !== undefined) {
+    if (typeof trimmedPatchTitle === 'string' && !trimmedPatchTitle) return jsonError('title is required')
     const titleError = validateStringLength(title, 'title', MAX_TITLE_LENGTH)
     if (titleError) return jsonError(titleError)
   }
 
   if (location !== undefined) {
+    if (typeof trimmedPatchLocation === 'string' && !trimmedPatchLocation) return jsonError('location is required')
     const locationError = validateStringLength(location, 'location', MAX_LOCATION_LENGTH)
     if (locationError) return jsonError(locationError)
   }
@@ -261,10 +268,10 @@ export async function PATCH(req: NextRequest) {
     if (status === 'closed') patch.is_manual_close = true
     else patch.is_manual_close = false
   }
-  if (title !== undefined) patch.title = title
+  if (title !== undefined) patch.title = trimmedPatchTitle
   if (event_date !== undefined) patch.event_date = nextStart
   if (event_end_date !== undefined) patch.event_end_date = nextEnd
-  if (location !== undefined) patch.location = location
+  if (location !== undefined) patch.location = trimmedPatchLocation
   if (location_url !== undefined) patch.location_url = parsedLocationUrl
   if (closes_at !== undefined) {
     const parsed = parseNullableDate(closes_at, 'closes_at')

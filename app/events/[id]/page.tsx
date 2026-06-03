@@ -1,4 +1,5 @@
-import { supabase, Event, Participant } from '@/lib/supabase'
+import { Event, Participant } from '@/lib/supabase'
+import { getServerSupabase } from '@/lib/supabase-server'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ParticipantList from '@/components/ParticipantList'
@@ -10,11 +11,13 @@ import { notFound } from 'next/navigation'
 export const revalidate = 0
 
 async function getEvent(id: string): Promise<Event | null> {
+  const supabase = getServerSupabase()
   const { data } = await supabase.from('events').select('*').eq('id', id).single()
   return data
 }
 
 async function getParticipants(eventId: string): Promise<Participant[]> {
+  const supabase = getServerSupabase()
   const { data } = await supabase
     .from('participants')
     .select('*')

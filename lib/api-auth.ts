@@ -20,9 +20,9 @@ function signAdminSessionPayload(payload: string): string | null {
   return crypto.createHmac('sha256', secret).update(payload).digest('base64url')
 }
 
-export function safeCompare(a: string | null | undefined, b: string | null | undefined): boolean {
-  const left = Buffer.from(a ?? '', 'utf8')
-  const right = Buffer.from(b ?? '', 'utf8')
+export function safeCompare(a: unknown, b: unknown): boolean {
+  const left = Buffer.from(typeof a === 'string' ? a : '', 'utf8')
+  const right = Buffer.from(typeof b === 'string' ? b : '', 'utf8')
   const comparable = typeof a === 'string' && typeof b === 'string' && a.length > 0 && b.length > 0
 
   if (left.length !== right.length) {

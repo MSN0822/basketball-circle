@@ -34,6 +34,10 @@ const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
+const supabaseAnon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+})
+
 const runId = `QA_SECURITY_${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
 const created = {
   eventId: null,
@@ -381,6 +385,69 @@ try {
       status: res.status,
       victimNameUnchanged: victimRow?.name === before,
       passed: res.status === 404 && victimRow?.name === before,
+    }
+  })
+
+  await record('SEC-17', 'Anonymous direct join_event RPC is blocked', async () => {
+    const { data, error } = await supabaseAnon.rpc('join_event', {
+      p_event_id: created.eventId,
+      p_name: `${runId} DIRECT_JOIN`,
+      p_user_code: `${runId}_direct_join`,
+      p_member_id: null,
+      p_is_guest: false,
+    })
+    return {
+      errorCode: error?.code ?? null,
+      returnedAppError: Boolean(data?.error),
+      passed: Boolean(error),
+    }
+  })
+
+  await record('SEC-18', 'Anonymous direct cancel_participant RPC is blocked', async () => {
+    const { data, error } = await supabaseAnon.rpc('cancel_participant', {
+      p_participant_id: participants[2].id,
+    })
+    return {
+      errorCode: error?.code ?? null,
+      returnedAppError: Boolean(data?.error),
+      passed: Boolean(error),
+    }
+  })
+
+  await record('SEC-19', 'Anonymous direct update_member_name RPC is blocked', async () => {
+    const { data, error } = await supabaseAnon.rpc('update_member_name', {
+      p_member_id: qaMembers[1].member.id,
+      p_auth_user_id: created.authUserIds[1],
+      p_name: `${runId} DIRECT_UPDATE`,
+    })
+    return {
+      errorCode: error?.code ?? null,
+      returnedAppError: Boolean(data?.error),
+      passed: Boolean(error),
+    }
+  })
+
+  await record('SEC-20', 'Anonymous direct members select is hidden by RLS', async () => {
+    const { data, error } = await supabaseAnon
+      .from('members')
+      .select('id')
+      .in('id', created.memberIds)
+    return {
+      errorCode: error?.code ?? null,
+      returnedRows: data?.length ?? 0,
+      passed: !error && (data?.length ?? 0) === 0,
+    }
+  })
+
+  await record('SEC-21', 'Anonymous direct participants select is hidden by RLS', async () => {
+    const { data, error } = await supabaseAnon
+      .from('participants')
+      .select('id')
+      .eq('event_id', created.eventId)
+    return {
+      errorCode: error?.code ?? null,
+      returnedRows: data?.length ?? 0,
+      passed: !error && (data?.length ?? 0) === 0,
     }
   })
 } finally {

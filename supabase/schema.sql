@@ -47,12 +47,12 @@ create policy "events_insert_none" on events for insert with check (false);
 create policy "events_update_none" on events for update using (false) with check (false);
 create policy "events_delete_none" on events for delete using (false);
 
-create policy "members_select" on members for select using (true);
+create policy "members_select_authenticated" on members for select to authenticated using (true);
 create policy "members_insert_none" on members for insert with check (false);
 create policy "members_update_none" on members for update using (false) with check (false);
 create policy "members_delete_none" on members for delete using (false);
 
-create policy "participants_select" on participants for select using (true);
+create policy "participants_select_authenticated" on participants for select to authenticated using (true);
 create policy "participants_insert_none" on participants for insert with check (false);
 create policy "participants_update_none" on participants for update using (false) with check (false);
 create policy "participants_delete_none" on participants for delete using (false);
