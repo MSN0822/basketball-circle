@@ -122,6 +122,14 @@ async function cleanupRunEvents(supabase: SupabaseClient) {
   if (eventError) throw eventError
 }
 
+async function clearAdminLoginAttempts(supabase: SupabaseClient) {
+  const { error } = await supabase
+    .from('admin_login_attempts')
+    .delete()
+    .neq('key', '')
+  if (error) throw error
+}
+
 test.describe.configure({ mode: 'serial' })
 
 test.describe('admin-flows E2E', () => {
@@ -140,6 +148,7 @@ test.describe('admin-flows E2E', () => {
     supabaseAdmin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
+    await clearAdminLoginAttempts(supabaseAdmin)
 
     const session = await loginAdmin(baseURL, adminPassword)
     adminCookieHeader = session.cookieHeader
@@ -151,7 +160,10 @@ test.describe('admin-flows E2E', () => {
   })
 
   test.afterAll(async () => {
-    if (supabaseAdmin) await cleanupRunEvents(supabaseAdmin)
+    if (supabaseAdmin) {
+      await cleanupRunEvents(supabaseAdmin)
+      await clearAdminLoginAttempts(supabaseAdmin)
+    }
   })
 
   async function injectAdminCookie(context: BrowserContext) {
@@ -321,11 +333,75 @@ test.describe('admin-flows E2E', () => {
     await screenshot(page, 'gap15-after-create.png')
   })
 
-  test.skip('[GAP-14] admin rate limit after 5 failures', async () => {
-    // Skipped on production because five consecutive failures intentionally lock the admin login key.
+  test('[GAP-14] admin rate limit after 5 failures', async () => {
+    await clearAdminLoginAttempts(supabaseAdmin)
+
+    try {
+      for (let i = 0; i < 5; i++) {
+        const res = await appJson(baseURL, '/api/admin/verify', {
+          method: 'POST',
+          body: JSON.stringify({ password: `${runId}-wrong-${i}` }),
+        })
+        expect(res.status).toBe(403)
+      }
+
+      const locked = await appJson(baseURL, '/api/admin/verify', {
+        method: 'POST',
+        body: JSON.stringify({ password: `${runId}-still-wrong` }),
+      })
+
+      expect(locked.status).toBe(429)
+    } finally {
+      await clearAdminLoginAttempts(supabaseAdmin)
+    }
   })
 
-  test.skip('[GAP-12] new member registration flow', async () => {
-    // Skipped on production because it creates a persistent Supabase Auth user unless a dedicated cleanup flow is approved.
+  test('[GAP-12] new member registration flow', async ({ page }) => {
+    const suffix = Date.now()
+    const email = `qa-${runId.toLowerCase()}-${suffix}@example.com`
+    const password = `Qa-${suffix}-pass`
+    let authUserId: string | null = null
+
+    try {
+      await page.goto('/login')
+      await page.locator('button').nth(1).click()
+
+      await page.locator('input').nth(0).fill('QA')
+      await page.locator('input').nth(1).fill(`登録${suffix}`)
+      await page.locator('input').nth(2).fill('確認')
+      await page.locator('input[type="email"]').fill(email)
+      await page.locator('input[type="password"]').fill(password)
+      await screenshot(page, 'gap12-register-form-filled.png')
+
+      await page.locator('button').last().click()
+      await page.waitForURL(url => !url.pathname.includes('/login'), { timeout: 15_000 })
+
+      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers()
+      expect(authError).toBeNull()
+      const createdUser = authUsers.users.find(user => user.email === email)
+      expect(createdUser?.id).toBeTruthy()
+      authUserId = createdUser!.id
+
+      const { data: member, error: memberError } = await supabaseAdmin
+        .from('members')
+        .select('id,name,auth_user_id')
+        .eq('auth_user_id', authUserId)
+        .maybeSingle()
+      expect(memberError).toBeNull()
+      expect(member?.name).toBe(`QA 登録${suffix}(確認)`)
+      await screenshot(page, 'gap12-after-register.png')
+    } finally {
+      if (authUserId) {
+        await supabaseAdmin.from('members').delete().eq('auth_user_id', authUserId)
+        await supabaseAdmin.auth.admin.deleteUser(authUserId)
+      } else {
+        const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
+        const createdUser = authUsers?.users.find(user => user.email === email)
+        if (createdUser?.id) {
+          await supabaseAdmin.from('members').delete().eq('auth_user_id', createdUser.id)
+          await supabaseAdmin.auth.admin.deleteUser(createdUser.id)
+        }
+      }
+    }
   })
 })
