@@ -47,10 +47,24 @@ function formatDateRange(startStr: string, endStr: string | null): string {
   return `${startText} - ${endText}`
 }
 
-export default function EventList({ events }: { events: Event[] }) {
+interface Props {
+  events: Event[]
+  // null = SSR で申請状況を解決できなかった（クライアント側フォールバックで取得する）
+  initialMyParticipations: PublicParticipant[] | null
+}
+
+function toParticipationMap(participations: PublicParticipant[] | null): Record<string, PublicParticipant> {
+  const map: Record<string, PublicParticipant> = {}
+  participations?.forEach(p => { map[p.event_id] = p })
+  return map
+}
+
+export default function EventList({ events, initialMyParticipations }: Props) {
   const router = useRouter()
   const [realtimeEvents, setRealtimeEvents] = useState<Event[] | null>(null)
-  const [myParticipations, setMyParticipations] = useState<Record<string, PublicParticipant>>({})
+  const [myParticipations, setMyParticipations] = useState<Record<string, PublicParticipant>>(
+    () => toParticipationMap(initialMyParticipations)
+  )
   const visibleEvents = realtimeEvents ?? events
 
   const reloadEvents = useCallback(async () => {
@@ -66,8 +80,13 @@ export default function EventList({ events }: { events: Event[] }) {
   }, [])
 
   useEffect(() => {
+    // SSR（page.tsx）で申請状況を解決済みなら初期フェッチは不要。
+    if (initialMyParticipations) return
+
+    // フォールバック: getSession() はローカル読みのためネットワーク往復を増やさない。
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) return
 
       const { data: member } = await supabase
@@ -85,13 +104,11 @@ export default function EventList({ events }: { events: Event[] }) {
       const { participations } = await res.json() as { participations?: PublicParticipant[] }
 
       if (participations) {
-        const map: Record<string, PublicParticipant> = {}
-        participations.forEach(p => { map[p.event_id] = p })
-        setMyParticipations(map)
+        setMyParticipations(toParticipationMap(participations))
       }
     }
     load()
-  }, [])
+  }, [initialMyParticipations])
 
   useEffect(() => {
     const channel = supabase

@@ -4,7 +4,7 @@ import { getAuthenticatedMember } from '@/lib/api-auth'
 import { getServerSupabase } from '@/lib/supabase-server'
 import { isValidUuid } from '@/lib/validators'
 import { effectiveEventStatus, isVisibleToMembers } from '@/lib/event-visibility'
-import { getMyParticipationAndGuests, toPublicParticipant } from '@/lib/participation-query'
+import { getMyParticipationAndGuests, getMyParticipations, toPublicParticipant } from '@/lib/participation-query'
 
 const supabase = getServerSupabase()
 const MAX_PARTICIPANT_NAME_LENGTH = 100
@@ -21,10 +21,6 @@ type VisibleEvent = {
   status: 'accepting' | 'closed' | 'draft'
   publishes_at: string | null
   closes_at: string | null
-}
-
-type ParticipantWithEvent = Participant & {
-  events?: VisibleEvent | null
 }
 
 async function getVisibleEvent(
@@ -69,23 +65,15 @@ export async function GET(req: NextRequest) {
   const canonicalMemberId = auth.member.id
 
   if (!eventId) {
-    const { data, error } = await supabase
-      .from('participants')
-      .select('*, events!inner(id,status,publishes_at,closes_at)')
-      .eq('member_id', canonicalMemberId)
-      .neq('status', 'cancelled')
-      .order('created_at', { ascending: true })
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    try {
+      const participations = await getMyParticipations(supabase, canonicalMemberId)
+      return NextResponse.json({ participations })
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : '参加情報の取得に失敗しました' },
+        { status: 500 },
+      )
     }
-
-    return NextResponse.json({
-      participations: ((data as ParticipantWithEvent[] | null) ?? [])
-        .filter(row => row.events && isVisibleToMembers(row.events))
-        .map(toPublicParticipant)
-        .filter(Boolean),
-    })
   }
 
   try {

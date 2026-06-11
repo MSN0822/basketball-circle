@@ -20,30 +20,43 @@ function parseDisplayName(name: string) {
   }
 }
 
-export default function MemberHeader() {
-  const [member, setMember] = useState<Member | null>(null)
+export default function MemberHeader({ initialMember }: { initialMember: Member | null }) {
+  const [member, setMember] = useState<Member | null>(initialMember)
   const [editing, setEditing] = useState(false)
-  const [nickname, setNickname] = useState('')
+  const [nickname, setNickname] = useState(
+    initialMember ? parseDisplayName(initialMember.name).nickname : ''
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // 会員状態が確定するまで「ログイン / 登録」を出さない（ログイン済みユーザへの誤表示防止）
+  const [loaded, setLoaded] = useState(initialMember !== null)
   const router = useRouter()
 
   useEffect(() => {
+    // SSR（page.tsx）で解決済みなら初期フェッチは不要。
+    if (initialMember) return
+
+    // フォールバック: getSession() はローカル読みのためネットワーク往復を増やさない。
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase
-        .from('members')
-        .select('*')
-        .eq('auth_user_id', user.id)
-        .single()
-      if (data) {
-        setMember(data)
-        setNickname(parseDisplayName(data.name).nickname)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const user = session?.user
+        if (!user) return
+        const { data } = await supabase
+          .from('members')
+          .select('*')
+          .eq('auth_user_id', user.id)
+          .single()
+        if (data) {
+          setMember(data)
+          setNickname(parseDisplayName(data.name).nickname)
+        }
+      } finally {
+        setLoaded(true)
       }
     }
     load()
-  }, [])
+  }, [initialMember])
 
   async function saveNickname() {
     if (!member) return
@@ -81,6 +94,11 @@ export default function MemberHeader() {
     setEditing(false)
     window.dispatchEvent(new CustomEvent('participants-changed'))
     router.refresh()
+  }
+
+  if (!loaded) {
+    // 高さを揃えるプレースホルダ（確定前に誤った表示を出さない）
+    return <span className="text-sm text-muted-foreground" aria-busy="true">&nbsp;</span>
   }
 
   if (!member) {

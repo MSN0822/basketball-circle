@@ -1,5 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { Participant, PublicParticipant } from '@/lib/supabase'
+import { isVisibleToMembers } from '@/lib/event-visibility'
+
+type VisibleEventFields = {
+  id: string
+  status: 'accepting' | 'closed' | 'draft'
+  publishes_at: string | null
+  closes_at: string | null
+}
+
+type ParticipantWithEvent = Participant & {
+  events?: VisibleEventFields | null
+}
 
 export function guestDisplayCode(userCode: string) {
   return userCode.startsWith('guest:') ? userCode.split(':').at(-1) ?? null : null
@@ -18,6 +30,26 @@ export function toPublicParticipant(participant: (Participant & { events?: unkno
     ...(safeParticipant as Omit<Participant, 'user_code' | 'member_id'>),
     display_code: guestDisplayCode(userCode),
   }
+}
+
+// 会員が申請中の全参加行（会員に公開中のイベント分のみ）を返す。イベント一覧のバッジ表示用。
+export async function getMyParticipations(
+  supabase: SupabaseClient,
+  memberId: string,
+): Promise<PublicParticipant[]> {
+  const { data, error } = await supabase
+    .from('participants')
+    .select('*, events!inner(id,status,publishes_at,closes_at)')
+    .eq('member_id', memberId)
+    .neq('status', 'cancelled')
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+
+  return ((data as ParticipantWithEvent[] | null) ?? [])
+    .filter(row => row.events && isVisibleToMembers(row.events))
+    .map(toPublicParticipant)
+    .filter((participation): participation is PublicParticipant => participation !== null)
 }
 
 export async function getMyParticipationAndGuests(
