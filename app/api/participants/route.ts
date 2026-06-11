@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateUserCode, Participant, PublicParticipant } from '@/lib/supabase'
+import { generateUserCode, Participant } from '@/lib/supabase'
 import { getAuthenticatedMember } from '@/lib/api-auth'
 import { getServerSupabase } from '@/lib/supabase-server'
 import { isValidUuid } from '@/lib/validators'
 import { effectiveEventStatus, isVisibleToMembers } from '@/lib/event-visibility'
+import { getMyParticipationAndGuests, toPublicParticipant } from '@/lib/participation-query'
 
 const supabase = getServerSupabase()
 const MAX_PARTICIPANT_NAME_LENGTH = 100
@@ -53,23 +54,6 @@ async function getVisibleEvent(
   return { ...data, status: nextStatus }
 }
 
-function guestDisplayCode(userCode: string) {
-  return userCode.startsWith('guest:') ? userCode.split(':').at(-1) ?? null : null
-}
-
-function toPublicParticipant(participant: (Participant & { events?: unknown }) | null | undefined): PublicParticipant | null {
-  if (!participant) return null
-  const userCode = participant.user_code
-  const safeParticipant = { ...participant } as Partial<ParticipantWithEvent>
-  delete safeParticipant.user_code
-  delete safeParticipant.member_id
-  delete safeParticipant.events
-  return {
-    ...(safeParticipant as Omit<Participant, 'user_code' | 'member_id'>),
-    display_code: guestDisplayCode(userCode),
-  }
-}
-
 export async function GET(req: NextRequest) {
   const eventId = req.nextUrl.searchParams.get('event_id')
   const requestedMemberId = req.nextUrl.searchParams.get('member_id')
@@ -116,36 +100,15 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  const [{ data: participation, error: participationError }, { data: guests, error: guestsError }] =
-    await Promise.all([
-      supabase
-        .from('participants')
-        .select('*')
-        .eq('event_id', eventId)
-        .eq('member_id', canonicalMemberId)
-        .neq('status', 'cancelled')
-        .limit(1)
-        .maybeSingle<Participant>(),
-      supabase
-        .from('participants')
-        .select('*')
-        .eq('event_id', eventId)
-        .neq('status', 'cancelled')
-        .like('user_code', `guest:${canonicalMemberId}:%`)
-        .order('created_at', { ascending: true }),
-    ])
-
-  if (participationError || guestsError) {
+  try {
+    const mine = await getMyParticipationAndGuests(supabase, eventId, canonicalMemberId)
+    return NextResponse.json(mine)
+  } catch (error) {
     return NextResponse.json(
-      { error: participationError?.message ?? guestsError?.message ?? '参加情報の取得に失敗しました' },
+      { error: error instanceof Error ? error.message : '参加情報の取得に失敗しました' },
       { status: 500 },
     )
   }
-
-  return NextResponse.json({
-    participation: toPublicParticipant(participation),
-    guests: ((guests as Participant[] | null) ?? []).map(toPublicParticipant).filter(Boolean),
-  })
 }
 
 export async function POST(req: NextRequest) {

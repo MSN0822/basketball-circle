@@ -82,7 +82,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const response = NextResponse.next()
+  let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -91,6 +91,13 @@ export async function proxy(request: NextRequest) {
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll: (cookies) => {
+          // リフレッシュ済みトークンを request にも反映してから response を作り直す
+          // （Supabase 公式パターン）。これを怠ると同一リクエスト内の Server Component
+          // が cookies() で古いアクセストークンを読み、SSR の会員解決が失敗する。
+          cookies.forEach(({ name, value }) => {
+            request.cookies.set(name, value)
+          })
+          response = NextResponse.next({ request })
           cookies.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options)
           })

@@ -21,13 +21,15 @@ async function getJsonAuthHeaders() {
 interface Props {
   event: Event
   initialParticipants: PublicParticipant[]
+  initialMember: Member | null
+  initialMyParticipantIds: string[]
 }
 
-export default function ParticipantList({ event, initialParticipants }: Props) {
+export default function ParticipantList({ event, initialParticipants, initialMember, initialMyParticipantIds }: Props) {
   const [participants, setParticipants] = useState<PublicParticipant[]>(initialParticipants)
   const [currentEvent, setCurrentEvent] = useState<Event>(event)
-  const [member, setMember] = useState<Member | null>(null)
-  const [myParticipantIds, setMyParticipantIds] = useState<Set<string>>(new Set())
+  const [member, setMember] = useState<Member | null>(initialMember)
+  const [myParticipantIds, setMyParticipantIds] = useState<Set<string>>(new Set(initialMyParticipantIds))
 
   const reloadMine = useCallback(async (memberId: string) => {
     const res = await fetch(`/api/participants?event_id=${encodeURIComponent(event.id)}&member_id=${encodeURIComponent(memberId)}`, {
@@ -49,8 +51,13 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
   }, [event.id])
 
   useEffect(() => {
+    // SSR（page.tsx）で解決済みなら初期フェッチは不要。
+    // フォールバック時の getSession() はローカル読みでネットワーク往復を増やさない。
+    if (initialMember) return
+
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) return
       const { data } = await supabase
         .from('members')
@@ -63,7 +70,7 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
       }
     }
     load()
-  }, [reloadMine])
+  }, [initialMember, reloadMine])
 
   const reloadParticipants = useCallback(async () => {
     const { data } = await supabase

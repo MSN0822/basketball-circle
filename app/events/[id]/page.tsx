@@ -1,5 +1,7 @@
-import { Event, PublicParticipant } from '@/lib/supabase'
+import { Event, Member, PublicParticipant } from '@/lib/supabase'
 import { getServerSupabase } from '@/lib/supabase-server'
+import { getCookieMember } from '@/lib/server-member'
+import { getMyParticipationAndGuests } from '@/lib/participation-query'
 import { isVisibleToMembers, withEffectiveEventStatus } from '@/lib/event-visibility'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -62,14 +64,38 @@ function formatDateRange(startStr: string, endStr: string | null): string {
   return `${startText} - ${endText}`
 }
 
+// このページはログインユーザごとに個人化したレスポンスを返す（revalidate=0 前提）。
+// 'use cache' や cacheComponents をこのルートに導入しないこと。
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const event = await getEvent(id)
+  const [event, participants, cookieMember] = await Promise.all([
+    getEvent(id),
+    getParticipants(id),
+    getCookieMember(),
+  ])
 
   if (!event) notFound()
 
-  const participants = await getParticipants(id)
+  // 申請状況をサーバ側で解決し、初回描画から正しいボタンを表示する。
+  // 解決に失敗した場合は member=null としてクライアント側フォールバックに委ねる。
+  let member: Member | null = cookieMember
+  let myParticipation: PublicParticipant | null = null
+  let myGuests: PublicParticipant[] = []
+  if (cookieMember) {
+    try {
+      const mine = await getMyParticipationAndGuests(getServerSupabase(), id, cookieMember.id)
+      myParticipation = mine.participation
+      myGuests = mine.guests
+    } catch {
+      member = null
+    }
+  }
+
   const active = participants.filter(p => p.status === 'active')
+  const myParticipantIds = [
+    ...(myParticipation ? [myParticipation.id] : []),
+    ...myGuests.map(guest => guest.id),
+  ]
   return (
     <main className="max-w-lg mx-auto px-4 py-8 space-y-6">
       <div>
@@ -110,7 +136,13 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <JoinForm event={event} />
+            <JoinForm
+              event={event}
+              initialMember={member}
+              initialParticipation={myParticipation}
+              initialGuests={myGuests}
+              initialActiveCount={active.length}
+            />
           </CardContent>
         </Card>
       )}
@@ -118,7 +150,12 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       <Separator />
 
       {/* 参加者リスト（リアルタイム） */}
-      <ParticipantList event={event} initialParticipants={participants} />
+      <ParticipantList
+        event={event}
+        initialParticipants={participants}
+        initialMember={member}
+        initialMyParticipantIds={myParticipantIds}
+      />
     </main>
   )
 }

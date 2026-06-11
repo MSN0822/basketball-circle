@@ -21,6 +21,10 @@ const supabase = getSupabase()
 
 interface Props {
   event: Event
+  initialMember: Member | null
+  initialParticipation: PublicParticipant | null
+  initialGuests: PublicParticipant[]
+  initialActiveCount: number
 }
 
 type JoinResponse = {
@@ -55,17 +59,19 @@ async function getJsonAuthHeaders() {
   }
 }
 
-export default function JoinForm({ event }: Props) {
-  const [member, setMember] = useState<Member | null>(null)
+export default function JoinForm({ event, initialMember, initialParticipation, initialGuests, initialActiveCount }: Props) {
+  const [member, setMember] = useState<Member | null>(initialMember)
   const [action, setAction] = useState<'join' | 'cancel' | string | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const [participation, setParticipation] = useState<PublicParticipant | null>(null)
-  const [guests, setGuests] = useState<PublicParticipant[]>([])
+  const [participation, setParticipation] = useState<PublicParticipant | null>(initialParticipation)
+  const [guests, setGuests] = useState<PublicParticipant[]>(initialGuests)
   const [guestNames, setGuestNames] = useState<string[]>([])
-  const [activeCount, setActiveCount] = useState(0)
+  const [activeCount, setActiveCount] = useState(initialActiveCount)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [currentEvent, setCurrentEvent] = useState<Event>(event)
+  // 申請状況が確定するまでスケルトンを表示する（SSRで解決済みなら最初から確定）
+  const [statusLoaded, setStatusLoaded] = useState(initialMember !== null)
 
   const loadMine = useCallback(async (memberId: string) => {
     const res = await fetch(`/api/participants?event_id=${encodeURIComponent(event.id)}&member_id=${encodeURIComponent(memberId)}`, {
@@ -109,21 +115,33 @@ export default function JoinForm({ event }: Props) {
   }, [loadActiveCount, loadEvent, loadMine])
 
   useEffect(() => {
+    // SSR（page.tsx）で申請状況を解決済みなら初期フェッチは不要。
+    // realtime 購読と15秒ポーリングが以降の更新を担保する。
+    if (initialMember) return
+
+    // フォールバック: SSRで member を解決できなかった場合（トークンリフレッシュ境界など）。
+    // getSession() はローカル読みのためネットワーク往復を増やさない。
+    // 実権限はサーバ側（lib/api-auth.ts）の getUser(token) 再検証が担保する。
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase
-        .from('members')
-        .select('*')
-        .eq('auth_user_id', user.id)
-        .single()
-      if (data) {
-        setMember(data)
-        await reloadMine(data.id)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const user = session?.user
+        if (!user) return
+        const { data } = await supabase
+          .from('members')
+          .select('*')
+          .eq('auth_user_id', user.id)
+          .single()
+        if (data) {
+          setMember(data)
+          await reloadMine(data.id)
+        }
+      } finally {
+        setStatusLoaded(true)
       }
     }
     load()
-  }, [event.id, reloadMine])
+  }, [event.id, initialMember, reloadMine])
 
   useEffect(() => {
     if (!member) return
@@ -329,6 +347,15 @@ export default function JoinForm({ event }: Props) {
     setMessage(`${guest.name} さんをキャンセルしました。`)
     await reloadMine(member.id)
     window.dispatchEvent(new CustomEvent('participants-changed', { detail: { eventId: event.id } }))
+  }
+
+  if (!statusLoaded) {
+    return (
+      <div className="space-y-3" aria-busy="true" aria-label="参加状況を確認中">
+        <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
+        <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
+      </div>
+    )
   }
 
   if (!member) {
