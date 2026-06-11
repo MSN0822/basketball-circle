@@ -5,12 +5,23 @@
  *   1. all DB migrations are applied
  *   2. the app is deployed
  *
- * It creates QA_* rows and cleans them up. For the rate-limit checks it only
- * deletes the admin_login_attempts rows it creates itself (the two RFC 5737
- * test IP keys plus the shared global:admin-login key). Resetting the shared
- * global key can clear a concurrent real lockout, so run this in a quiet window.
- * A stricter future approach would undo only the script's own contribution to
- * global:admin-login via an atomic decrement RPC instead of deleting the row.
+ * It creates QA_* rows and cleans them up.
+ *
+ * Rate-limit checks and production (2026-06-11 fix):
+ * Vercel's edge overwrites x-real-ip with the real client IP, so the spoofed
+ * x-real-ip headers below never reach the app on production — every attempt is
+ * recorded under ip:<real client IP>. Consequences handled here:
+ *   - POST-04 still proves the lockout works (the real IP key locks the same
+ *     way), and cleanup uses a before/after diff of admin_login_attempts to
+ *     also delete the real-IP rows the test created. Deleting the row releases
+ *     the lock immediately, so the runner's own admin login is not left locked.
+ *   - POST-05 (global limit via rotating IPs) is impossible to test against
+ *     production and is recorded as SKIP there; it still runs against
+ *     non-production targets where the spoofed header passes through.
+ * Resetting the shared global:admin-login key can clear a concurrent real
+ * lockout, and the cleanup diff deletes ip: rows whose count grew during the
+ * test (indistinguishable from concurrent real failures), so run this in a
+ * quiet window.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -49,6 +60,8 @@ function requireProductionQaAllowed(baseUrl) {
 
 requireProductionQaAllowed(BASE_URL)
 
+const IS_PRODUCTION_TARGET = PRODUCTION_ORIGINS.has(new URL(BASE_URL).origin)
+
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
@@ -77,8 +90,8 @@ function publicDetail(detail) {
 async function record(id, name, fn) {
   try {
     const detail = await fn()
-    const passed = detail?.passed !== false
-    results.push({ id, name, status: passed ? 'PASS' : 'FAIL', detail: publicDetail(detail) })
+    const status = detail?.skipped ? 'SKIP' : detail?.passed !== false ? 'PASS' : 'FAIL'
+    results.push({ id, name, status, detail: publicDetail(detail) })
   } catch (error) {
     results.push({
       id,
@@ -108,9 +121,12 @@ async function fetchJson(pathname, options = {}) {
   return { status: res.status, ok: res.ok, body, headers: res.headers }
 }
 
-// Keys this script itself creates during the rate-limit checks. POST-04 sends a
-// fixed x-real-ip; POST-05 sends a distinct x-real-ip per attempt. clientIdentifier
-// (app/api/admin/verify/route.ts) prefers x-real-ip, so these map 1:1 to ip:<ip>.
+// Keys this script knowingly creates during the rate-limit checks. POST-04 sends a
+// fixed x-real-ip; POST-05 sends a distinct x-real-ip per attempt. On non-production
+// targets clientIdentifier (app/api/admin/verify/route.ts) sees these spoofed values,
+// so they map 1:1 to ip:<ip>. On production Vercel overwrites x-real-ip, so the
+// attempts land on ip:<real client IP> instead — that key cannot be enumerated here
+// and is removed by the before/after diff in clearScriptRateLimitKeys.
 // Every admin verify attempt also touches the shared global:admin-login key.
 const SCRIPT_RATE_LIMIT_KEYS = [
   'global:admin-login',
@@ -118,23 +134,46 @@ const SCRIPT_RATE_LIMIT_KEYS = [
   ...Array.from({ length: 6 }, (_, i) => `ip:198.51.100.${20 + i}`),
 ]
 
-// Only ever delete the script's own known keys. Never snapshot/upsert the whole
-// table: the shared global:admin-login row is mutated by live traffic, and a
-// blind restore would roll back concurrent real increments/lockouts.
-async function clearScriptRateLimitKeys() {
+async function snapshotAttemptKeys() {
+  const { data, error } = await supabaseAdmin
+    .from('admin_login_attempts')
+    .select('key,count')
+  if (error) throw error
+  return new Map((data ?? []).map(row => [row.key, row.count]))
+}
+
+// Deletes the script's known keys, plus — when a pre-test snapshot is given —
+// any ip: row that appeared or grew during the test (on production that is the
+// runner's real client IP; deleting the row releases its lock immediately).
+// Never snapshot/upsert-restore the whole table: the shared global:admin-login
+// row is mutated by live traffic, and a blind restore would roll back
+// concurrent real increments/lockouts.
+async function clearScriptRateLimitKeys(beforeSnapshot) {
+  const keys = new Set(SCRIPT_RATE_LIMIT_KEYS)
+
+  if (beforeSnapshot) {
+    const after = await snapshotAttemptKeys()
+    for (const [key, count] of after) {
+      if (!key.startsWith('ip:')) continue
+      const beforeCount = beforeSnapshot.get(key)
+      if (beforeCount === undefined || count > beforeCount) keys.add(key)
+    }
+  }
+
   const { error } = await supabaseAdmin
     .from('admin_login_attempts')
     .delete()
-    .in('key', SCRIPT_RATE_LIMIT_KEYS)
+    .in('key', [...keys])
   if (error) throw error
 }
 
 async function withScriptRateLimitCleanup(fn) {
   await clearScriptRateLimitKeys()
+  const beforeSnapshot = await snapshotAttemptKeys()
   try {
     return await fn()
   } finally {
-    await clearScriptRateLimitKeys()
+    await clearScriptRateLimitKeys(beforeSnapshot)
   }
 }
 
@@ -296,6 +335,10 @@ try {
 
   await record('POST-04', 'admin login locks after repeated wrong password from one IP', async () => {
     return withScriptRateLimitCleanup(async () => {
+      // On production the spoofed header is overwritten by Vercel, so all six
+      // attempts land on ip:<real client IP> (and global:admin-login) — the
+      // 5x403 -> 429 expectation holds either way. The cleanup diff removes the
+      // real-IP row afterwards, which releases the lock immediately.
       const statuses = await wrongAdminAttempts({ 'x-real-ip': '198.51.100.203' })
       return {
         statuses,
@@ -305,6 +348,18 @@ try {
   })
 
   await record('POST-05', 'admin login global limit catches attempts from rotating IPs', async () => {
+    if (IS_PRODUCTION_TARGET) {
+      // Vercel overwrites x-real-ip with the real client IP, so per-attempt IP
+      // rotation never reaches the app: every attempt hits the same real-IP key,
+      // which locks first and the global limit can no longer be isolated.
+      // The global-limit logic is covered by unit tests and by running this
+      // check against non-production targets.
+      return {
+        skipped: true,
+        reason: 'IP rotation cannot be tested against production (Vercel overwrites x-real-ip)',
+      }
+    }
+
     return withScriptRateLimitCleanup(async () => {
       // Each attempt uses a distinct client IP, so no per-IP key ever reaches the
       // limit; only the shared global:admin-login key accumulates. A 429 on the
@@ -329,6 +384,7 @@ const summary = {
     total: results.length,
     passed: results.filter(r => r.status === 'PASS').length,
     failed: results.filter(r => r.status === 'FAIL').length,
+    skipped: results.filter(r => r.status === 'SKIP').length,
   },
   results,
 }
