@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Event } from '@/lib/supabase'
+import { adminLoginErrorMessage } from '@/lib/admin-login-error'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -86,7 +87,7 @@ export default function AdminPage() {
       body: JSON.stringify({ password }),
     })
     if (!res.ok) {
-      setAuthError('パスワードが違います')
+      setAuthError(adminLoginErrorMessage(res.status))
       return
     }
     setAuthed(true)
