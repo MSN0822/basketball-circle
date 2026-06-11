@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Event } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
+import { withEffectiveEventStatus } from '@/lib/event-visibility'
 
 const supabase = getSupabase()
 
@@ -31,7 +32,7 @@ export default function EventStatusBadge({ event, initialActiveCount }: Props) {
         .eq('status', 'active'),
     ])
 
-    if (nextEvent) setCurrentEvent(nextEvent)
+    if (nextEvent) setCurrentEvent(withEffectiveEventStatus(nextEvent))
     setActiveCount(count ?? 0)
   }, [event.id])
 
@@ -52,7 +53,7 @@ export default function EventStatusBadge({ event, initialActiveCount }: Props) {
         { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${event.id}` },
         payload => {
           const next = payload.new as Partial<Event>
-          setCurrentEvent(current => ({ ...current, ...next }))
+          setCurrentEvent(current => withEffectiveEventStatus({ ...current, ...next }))
         }
       )
       .subscribe()

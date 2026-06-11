@@ -30,6 +30,7 @@ const env = Object.fromEntries(
 )
 
 const BASE_URL = process.env.QA_BASE_URL ?? 'https://basketball-circle.vercel.app'
+const PRODUCTION_ORIGINS = new Set(['https://basketball-circle.vercel.app'])
 const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_ANON_KEY = env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY
@@ -38,6 +39,15 @@ const ADMIN_PASSWORD = env.ADMIN_PASSWORD
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !ADMIN_PASSWORD) {
   throw new Error('Required QA environment values are missing.')
 }
+
+function requireProductionQaAllowed(baseUrl) {
+  const origin = new URL(baseUrl).origin
+  if (PRODUCTION_ORIGINS.has(origin) && process.env.ALLOW_PRODUCTION_QA !== '1') {
+    throw new Error(`Refusing to run mutation QA against ${origin}. Set ALLOW_PRODUCTION_QA=1 to confirm production QA.`)
+  }
+}
+
+requireProductionQaAllowed(BASE_URL)
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -216,8 +226,8 @@ async function cleanup() {
 try {
   await setupData()
 
-  await record('POST-01', 'participants_public exposes public columns only', async () => {
-    const { data, error } = await supabaseAnon
+  await record('POST-01', 'participants_public exposes member-visible columns only', async () => {
+    const { data, error } = await supabaseAdmin
       .from('participants_public')
       .select('*')
       .eq('event_id', created.eventId)
@@ -225,27 +235,36 @@ try {
 
     const rows = data ?? []
     const hasUserCode = rows.some(row => Object.prototype.hasOwnProperty.call(row, 'user_code'))
+    const hasMemberId = rows.some(row => Object.prototype.hasOwnProperty.call(row, 'member_id'))
     const guest = rows.find(row => row.name.endsWith('Guest'))
     const legacy = rows.find(row => row.name.endsWith('Legacy'))
     const { error: userCodeSelectError } = await supabaseAnon
       .from('participants_public')
       .select('user_code')
       .eq('event_id', created.eventId)
+    const { error: memberIdSelectError } = await supabaseAdmin
+      .from('participants_public')
+      .select('member_id')
+      .eq('event_id', created.eventId)
 
     return {
       errorCode: error?.code ?? null,
       rowCount: rows.length,
       hasUserCode,
+      hasMemberId,
       guestDisplayCode: guest?.display_code ?? null,
       legacyDisplayCode: legacy?.display_code ?? null,
       userCodeSelectErrorCode: userCodeSelectError?.code ?? null,
+      memberIdSelectErrorCode: memberIdSelectError?.code ?? null,
       passed:
         !error &&
         rows.length === 2 &&
         !hasUserCode &&
+        !hasMemberId &&
         guest?.display_code === '12345' &&
         legacy?.display_code === null &&
-        Boolean(userCodeSelectError),
+        Boolean(userCodeSelectError) &&
+        Boolean(memberIdSelectError),
     }
   })
 
@@ -262,8 +281,8 @@ try {
     }
   })
 
-  await record('POST-03', 'anon public view returns event participants for public pages', async () => {
-    const { data, error } = await supabaseAnon
+  await record('POST-03', 'participants_public view returns event participants through server-visible shape', async () => {
+    const { data, error } = await supabaseAdmin
       .from('participants_public')
       .select('id,event_id,name,status,slot_number,display_code')
       .eq('event_id', created.eventId)

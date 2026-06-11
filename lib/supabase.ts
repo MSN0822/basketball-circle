@@ -30,7 +30,7 @@ export interface Participant {
   created_at: string
 }
 
-export type PublicParticipant = Omit<Participant, 'user_code'> & {
+export type PublicParticipant = Omit<Participant, 'user_code' | 'member_id'> & {
   display_code: string | null
 }
 

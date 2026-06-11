@@ -2,6 +2,7 @@ import { test, expect, type BrowserContext, type Page } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { cleanupQaEvents, requireProductionE2eAllowed, STALE_QA_EVENT_PREFIXES, staleQaCutoff } from './qa-cleanup'
 
 const ADMIN_SESSION_COOKIE = 'basketball_admin_session'
 const runId = `QA_E2E_ADMIN_${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
@@ -100,28 +101,6 @@ async function createAdminEvent(baseURL: string, cookie: string, suffix: string,
   return { id: res.body.event!.id, title: res.body.event!.title }
 }
 
-async function cleanupRunEvents(supabase: SupabaseClient) {
-  const { data: events, error } = await supabase
-    .from('events')
-    .select('id,title')
-    .like('title', `${runId}%`)
-  if (error) throw error
-  const ids = (events ?? []).map(event => event.id as string)
-  if (ids.length === 0) return
-
-  const { error: participantError } = await supabase
-    .from('participants')
-    .delete()
-    .in('event_id', ids)
-  if (participantError) throw participantError
-
-  const { error: eventError } = await supabase
-    .from('events')
-    .delete()
-    .in('id', ids)
-  if (eventError) throw eventError
-}
-
 async function clearAdminLoginAttempts(supabase: SupabaseClient) {
   const { error } = await supabase
     .from('admin_login_attempts')
@@ -145,9 +124,11 @@ test.describe('admin-flows E2E', () => {
     const env = await readLocalEnv()
     adminPassword = env.ADMIN_PASSWORD
     baseURL = process.env.QA_BASE_URL ?? baseURL
+    requireProductionE2eAllowed(baseURL)
     supabaseAdmin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
+    await cleanupQaEvents(supabaseAdmin, STALE_QA_EVENT_PREFIXES, { olderThanIso: staleQaCutoff() })
     await clearAdminLoginAttempts(supabaseAdmin)
 
     const session = await loginAdmin(baseURL, adminPassword)
@@ -161,7 +142,7 @@ test.describe('admin-flows E2E', () => {
 
   test.afterAll(async () => {
     if (supabaseAdmin) {
-      await cleanupRunEvents(supabaseAdmin)
+      await cleanupQaEvents(supabaseAdmin, [runId])
       await clearAdminLoginAttempts(supabaseAdmin)
     }
   })

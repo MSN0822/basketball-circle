@@ -30,21 +30,49 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 })
 
 const baseURL = process.env.QA_BASE_URL ?? 'https://basketball-circle.vercel.app'
-const evidenceDir = path.join(root, 'docs', 'qa', 'evidence', '2026-05-27-rollout-demo-events')
+const productionOrigins = new Set([
+  'https://basketball-circle.vercel.app',
+  'https://www.basketball-circle.vercel.app',
+])
+
+const baseOrigin = new URL(baseURL).origin
+if (productionOrigins.has(baseOrigin) && process.env.ALLOW_PRODUCTION_QA !== '1') {
+  throw new Error(`Refusing to recreate rollout demo events against ${baseOrigin}. Set ALLOW_PRODUCTION_QA=1 to confirm production mutation.`)
+}
+
+const runId = `ROLLOUT_DEMO_${new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15)}`
+const evidenceDir = path.join(root, 'docs', 'qa', 'evidence', `2026-06-08-rollout-demo-events-${runId}`)
 const now = new Date()
+const ROLLOUT_EVENT_TITLE_PREFIX = '【運営展開用】'
+const LEGACY_MOJIBAKE_PREFIXES = ['縲宣°蝟ｶ螻暮幕逕ｨ縲・']
+const DELETE_PREFIXES = [ROLLOUT_EVENT_TITLE_PREFIX, ...LEGACY_MOJIBAKE_PREFIXES]
+
+function currentJstDateParts() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]))
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+  }
+}
+
+function jstDateAtOffset(days, hourJst, minuteJst = 0) {
+  const { year, month, day } = currentJstDateParts()
+  return new Date(Date.UTC(year, month - 1, day + days, hourJst - 9, minuteJst, 0, 0)).toISOString()
+}
 
 function daysFromNow(days, hourJst, minuteJst = 0) {
-  const date = new Date(now)
-  date.setUTCDate(date.getUTCDate() + days)
-  date.setUTCHours(hourJst - 9, minuteJst, 0, 0)
-  return date.toISOString()
+  return jstDateAtOffset(days, hourJst, minuteJst)
 }
 
 function daysAgo(days, hourJst, minuteJst = 0) {
-  const date = new Date(now)
-  date.setUTCDate(date.getUTCDate() - days)
-  date.setUTCHours(hourJst - 9, minuteJst, 0, 0)
-  return date.toISOString()
+  return jstDateAtOffset(-days, hourJst, minuteJst)
 }
 
 function demoParticipants(prefix, count, label) {
@@ -57,14 +85,28 @@ function demoParticipants(prefix, count, label) {
   }))
 }
 
-async function listEvents() {
+async function listEventsByPrefix(prefix) {
   const { data, error } = await supabase
     .from('events')
     .select('id,title,status,event_date,event_end_date,max_participants,threshold,closes_at,publishes_at,created_at')
+    .like('title', `${prefix}%`)
     .order('created_at', { ascending: false })
 
   if (error) throw error
   return data ?? []
+}
+
+async function listEventsForDeletion() {
+  const groups = await Promise.all(DELETE_PREFIXES.map(prefix => listEventsByPrefix(prefix)))
+  const unique = new Map()
+  for (const event of groups.flat()) {
+    unique.set(event.id, event)
+  }
+  return [...unique.values()]
+}
+
+async function listCurrentRolloutEvents() {
+  return listEventsByPrefix(ROLLOUT_EVENT_TITLE_PREFIX)
 }
 
 async function deleteEventWithParticipants(event) {
@@ -182,7 +224,7 @@ const rolloutEvents = [
   },
 ]
 
-const before = await listEvents()
+const before = await listEventsForDeletion()
 
 for (const event of before) {
   await deleteEventWithParticipants(event)
@@ -193,18 +235,21 @@ for (const definition of rolloutEvents) {
   created.push(await createEventWithParticipants(definition))
 }
 
-const finalEvents = await listEvents()
+const finalEvents = await listCurrentRolloutEvents()
+const finalEventIds = finalEvents.map(event => event.id)
 const { data: finalParticipants, error: participantError } = await supabase
   .from('participants')
   .select('event_id,name,user_code,status,slot_number')
+  .in('event_id', finalEventIds.length > 0 ? finalEventIds : ['00000000-0000-0000-0000-000000000000'])
   .order('slot_number', { ascending: true })
 
 if (participantError) throw participantError
 
 const summary = {
+  runId,
   replacedAt: new Date().toISOString(),
   baseURL,
-  beforeCount: before.length,
+  deletedCount: before.length,
   deleted: before.map(event => ({
     title: event.title,
     status: event.status,
@@ -216,8 +261,11 @@ const summary = {
     .map(event => {
       const participants = (finalParticipants ?? []).filter(participant => participant.event_id === event.id)
       return {
+        id: event.id,
         title: event.title,
         status: event.status,
+        event_date: event.event_date,
+        event_end_date: event.event_end_date,
         max_participants: event.max_participants,
         threshold: event.threshold,
         activeParticipants: participants.filter(participant => participant.status === 'active').length,
@@ -236,13 +284,6 @@ try {
   const page = await browser.newPage({ viewport: { width: 1365, height: 1100 } })
   await page.goto(baseURL, { waitUntil: 'networkidle' })
   await page.screenshot({ path: path.join(evidenceDir, '01-user-top-rollout-events.png'), fullPage: true })
-
-  await page.goto(`${baseURL}/login`, { waitUntil: 'networkidle' })
-  await page.evaluate(password => {
-    localStorage.setItem('basketball_admin_password', password)
-  }, env.ADMIN_PASSWORD)
-  await page.goto(`${baseURL}/admin`, { waitUntil: 'networkidle' })
-  await page.screenshot({ path: path.join(evidenceDir, '02-admin-rollout-events.png'), fullPage: true })
 } finally {
   await browser.close()
 }

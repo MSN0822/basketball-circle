@@ -9,11 +9,18 @@ const OTHER_MEMBER_ID = '33333333-3333-4333-8333-333333333333'
 async function loadRoute(options: {
   authMemberId?: string | null
   authStatus?: number
+  visibleEvent?: { id: string; status: 'accepting' | 'closed' | 'draft'; publishes_at: string | null; closes_at: string | null } | null
   rpcResult?: { data: unknown; error: null | { message: string; code?: string } }
 } = {}) {
   vi.resetModules()
 
   const supabase = mockSupabaseFrom({
+    selectMaybeSingleResult: {
+      data: options.visibleEvent === undefined
+        ? { id: EVENT_ID, status: 'accepting', publishes_at: null, closes_at: null }
+        : options.visibleEvent,
+      error: null,
+    },
     rpcResult: options.rpcResult ?? {
       data: {
         participant: {
@@ -57,6 +64,20 @@ describe('POST /api/participants', () => {
     expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
   })
 
+  it('rejects guest names over 100 characters before calling join_event', async () => {
+    const { POST, supabase } = await loadRoute()
+
+    const res = await POST(jsonRequest({
+      event_id: EVENT_ID,
+      name: 'a'.repeat(101),
+      member_id: MEMBER_ID,
+      guest: true,
+    }))
+
+    expect(res.status).toBe(400)
+    expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
+  })
+
   it('rejects a spoofed member_id via getAuthenticatedMember', async () => {
     const { POST, supabase, mocks } = await loadRoute({ authMemberId: null, authStatus: 403 })
 
@@ -64,6 +85,15 @@ describe('POST /api/participants', () => {
 
     expect(res.status).toBe(403)
     expect(mocks.getAuthenticatedMember).toHaveBeenCalledWith(expect.any(Request), OTHER_MEMBER_ID)
+    expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('rejects draft events before calling join_event', async () => {
+    const { POST, supabase } = await loadRoute({ visibleEvent: null })
+
+    const res = await POST(jsonRequest({ event_id: EVENT_ID, name: 'Guest', member_id: MEMBER_ID, guest: true }))
+
+    expect(res.status).toBe(404)
     expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
   })
 

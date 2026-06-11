@@ -16,6 +16,7 @@ const env = Object.fromEntries(
 )
 
 const BASE_URL = process.env.QA_BASE_URL ?? 'https://basketball-circle.vercel.app'
+const PRODUCTION_ORIGINS = new Set(['https://basketball-circle.vercel.app'])
 const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_ANON_KEY = env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY
@@ -24,6 +25,15 @@ const ADMIN_PASSWORD = env.ADMIN_PASSWORD
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !ADMIN_PASSWORD) {
   throw new Error('Required local QA environment values are missing.')
 }
+
+function requireProductionQaAllowed(baseUrl) {
+  const origin = new URL(baseUrl).origin
+  if (PRODUCTION_ORIGINS.has(origin) && process.env.ALLOW_PRODUCTION_QA !== '1') {
+    throw new Error(`Refusing to run mutation QA against ${origin}. Set ALLOW_PRODUCTION_QA=1 to confirm production QA.`)
+  }
+}
+
+requireProductionQaAllowed(BASE_URL)
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: {
@@ -39,7 +49,7 @@ const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 })
 
-const runId = `QA_KEEP_${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
+const runId = `QA_E2E_API_${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
 const evidenceDir = path.join(root, 'docs', 'qa', 'evidence', `2026-05-26-comprehensive-${runId}`)
 await fs.mkdir(evidenceDir, { recursive: true })
 
@@ -218,13 +228,82 @@ async function cancel(participantId, memberId = null, userCode = null, admin = f
 }
 
 async function getEvent(eventId) {
-  const res = await supabaseRest('events', `?id=eq.${eventId}&select=*`)
-  return Array.isArray(res.body) ? res.body[0] : null
+  const { data, error } = await supabaseAdmin
+    .from('events')
+    .select('*')
+    .eq('id', eventId)
+    .maybeSingle()
+  if (error) throw new Error(`getEvent failed: ${error.message}`)
+  return data ?? null
 }
 
 async function getParticipants(eventId) {
-  const res = await supabaseRest('participants', `?event_id=eq.${eventId}&select=*&order=slot_number.asc,created_at.asc`)
-  return Array.isArray(res.body) ? res.body : []
+  const { data, error } = await supabaseAdmin
+    .from('participants')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('slot_number', { ascending: true })
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(`getParticipants failed: ${error.message}`)
+  return data ?? []
+}
+
+async function cleanupCreatedData() {
+  const result = {
+    participantIds: created.participants.map(participant => participant.id).filter(Boolean),
+    eventIds: created.events.map(event => event.id).filter(Boolean),
+    memberIds: created.members.map(member => member.id).filter(Boolean),
+    authUserIds: created.authUsers.map(user => user.id).filter(Boolean),
+    errors: [],
+  }
+
+  if (result.participantIds.length > 0) {
+    const { error } = await supabaseAdmin
+      .from('participants')
+      .delete()
+      .in('id', result.participantIds)
+    if (error) result.errors.push(`participants by id: ${error.message}`)
+  }
+
+  if (result.eventIds.length > 0) {
+    const { error: participantsError } = await supabaseAdmin
+      .from('participants')
+      .delete()
+      .in('event_id', result.eventIds)
+    if (participantsError) result.errors.push(`participants by event: ${participantsError.message}`)
+
+    const { error: eventsError } = await supabaseAdmin
+      .from('events')
+      .delete()
+      .in('id', result.eventIds)
+    if (eventsError) result.errors.push(`events: ${eventsError.message}`)
+  }
+
+  if (result.memberIds.length > 0) {
+    const { error } = await supabaseAdmin
+      .from('members')
+      .delete()
+      .in('id', result.memberIds)
+    if (error) result.errors.push(`members: ${error.message}`)
+  }
+
+  const authResults = await Promise.allSettled(
+    result.authUserIds.map(id => supabaseAdmin.auth.admin.deleteUser(id))
+  )
+  authResults.forEach((authResult, index) => {
+    if (authResult.status === 'rejected') {
+      result.errors.push(`auth user ${result.authUserIds[index]}: ${authResult.reason}`)
+      return
+    }
+    if (authResult.value.error) {
+      result.errors.push(`auth user ${result.authUserIds[index]}: ${authResult.value.error.message}`)
+    }
+  })
+
+  return {
+    ...result,
+    success: result.errors.length === 0,
+  }
 }
 
 let adminCookie = null
@@ -566,8 +645,12 @@ await record('G-02', 'Anon direct members update is blocked', async () => {
     method: 'PATCH',
     body: JSON.stringify({ name: `${before}_ANON_PATCH_SHOULD_NOT_APPLY` }),
   })
-  const selected = await supabaseRest('members', `?id=eq.${memberA.member.id}&select=*`)
-  const after = Array.isArray(selected.body) ? selected.body[0] : null
+  const { data: after, error } = await supabaseAdmin
+    .from('members')
+    .select('name')
+    .eq('id', memberA.member.id)
+    .maybeSingle()
+  if (error) throw new Error(`admin member verification failed: ${error.message}`)
   return { status: res.status, rowsReturned: Array.isArray(res.body) ? res.body.length : null, before, after: after?.name, passed: after?.name === before }
 })
 
@@ -588,15 +671,20 @@ await record('G-03', 'Anon direct participants insert is blocked', async () => {
 })
 
 await record('G-04', 'Anon direct members insert is blocked', async () => {
+  const name = `${runId} ANON_MEMBER_SHOULD_NOT_APPLY`
   const res = await supabaseRest('members', '', {
     method: 'POST',
     body: JSON.stringify({
-      name: `${runId} ANON_MEMBER_SHOULD_NOT_APPLY`,
+      name,
       member_number: '999',
     }),
   })
-  const selected = await supabaseRest('members', `?name=eq.${encodeURIComponent(`${runId} ANON_MEMBER_SHOULD_NOT_APPLY`)}&select=*`)
-  const inserted = Array.isArray(selected.body) && selected.body.length > 0
+  const { data, error } = await supabaseAdmin
+    .from('members')
+    .select('id')
+    .eq('name', name)
+  if (error) throw new Error(`admin member insert verification failed: ${error.message}`)
+  const inserted = (data ?? []).length > 0
   return { status: res.status, body: res.body, inserted, passed: !inserted && !res.ok }
 })
 
@@ -616,8 +704,12 @@ await record('G-05', 'Anon direct events insert is blocked', async () => {
       status: 'accepting',
     }),
   })
-  const selected = await supabaseRest('events', `?title=eq.${encodeURIComponent(title)}&select=*`)
-  const inserted = Array.isArray(selected.body) && selected.body.length > 0
+  const { data, error } = await supabaseAdmin
+    .from('events')
+    .select('id')
+    .eq('title', title)
+  if (error) throw new Error(`admin event insert verification failed: ${error.message}`)
+  const inserted = (data ?? []).length > 0
   return { status: res.status, body: res.body, inserted, passed: !inserted && !res.ok }
 })
 
@@ -625,6 +717,8 @@ await record('B-06', 'Created event stores and exposes end date', async () => {
   const event = await getEvent(mainEvent.id)
   return { eventId: event?.id, event_date: event?.event_date, event_end_date: event?.event_end_date, passed: Boolean(event?.event_end_date) }
 })
+
+const cleanup = await cleanupCreatedData()
 
 const summary = {
   runId,
@@ -637,6 +731,7 @@ const summary = {
     failed: results.filter(r => r.status === 'FAIL').length,
   },
   created,
+  cleanup,
   results: results.map(({ id, name, status, evidence, detail }) => ({
     id,
     name,

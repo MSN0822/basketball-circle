@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { cleanupQaEvents, requireProductionE2eAllowed, STALE_QA_EVENT_PREFIXES, staleQaCutoff } from './qa-cleanup'
 
 const ADMIN_SESSION_COOKIE = 'basketball_admin_session'
 const runId = `QA_E2E_USER_${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
@@ -102,28 +103,6 @@ async function createAdminEvent(baseURL: string, cookie: string, suffix: string,
   return { id: res.body.event!.id, title: res.body.event!.title }
 }
 
-async function cleanupRunEvents(supabase: SupabaseClient) {
-  const { data: events, error } = await supabase
-    .from('events')
-    .select('id,title')
-    .like('title', `${runId}%`)
-  if (error) throw error
-  const ids = (events ?? []).map(event => event.id as string)
-  if (ids.length === 0) return
-
-  const { error: participantError } = await supabase
-    .from('participants')
-    .delete()
-    .in('event_id', ids)
-  if (participantError) throw participantError
-
-  const { error: eventError } = await supabase
-    .from('events')
-    .delete()
-    .in('id', ids)
-  if (eventError) throw eventError
-}
-
 async function loginQaUser(page: Page, email: string, password: string) {
   await page.goto('/login')
   await page.locator('input[type="email"]').fill(email)
@@ -151,11 +130,13 @@ test.describe('user-flows E2E', () => {
   test.beforeAll(async () => {
     const env = await readLocalEnv()
     baseURL = process.env.QA_BASE_URL ?? baseURL
+    requireProductionE2eAllowed(baseURL)
     qaEmail = process.env.QA_AUTH_EMAIL ?? env.QA_AUTH_EMAIL ?? ''
     qaPassword = process.env.QA_AUTH_PASSWORD ?? env.QA_AUTH_PASSWORD ?? ''
     supabaseAdmin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
+    await cleanupQaEvents(supabaseAdmin, STALE_QA_EVENT_PREFIXES, { olderThanIso: staleQaCutoff() })
 
     if (!qaEmail || !qaPassword) return
 
@@ -240,7 +221,7 @@ test.describe('user-flows E2E', () => {
         body: JSON.stringify({ member_id: qaMember.id, name: originalMemberName }),
       }).catch(() => null)
     }
-    if (supabaseAdmin) await cleanupRunEvents(supabaseAdmin)
+    if (supabaseAdmin) await cleanupQaEvents(supabaseAdmin, [runId])
   })
 
   test('[GAP-08] home page shows event list for authenticated user', async ({ page }) => {

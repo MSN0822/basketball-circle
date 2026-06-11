@@ -3,7 +3,7 @@
 管理者セッショントークンは次の仕様で署名する。
 
 - algorithm: HMAC-SHA256
-- secret: `ADMIN_SESSION_SECRET || ADMIN_PASSWORD`
+- secret: `ADMIN_SESSION_SECRET`
 - payload: `${expiresAt}.${nonce}`
 - signature encoding: base64url without padding
 - token format: `${expiresAt}.${nonce}.${signature}`

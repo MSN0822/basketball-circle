@@ -17,12 +17,42 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+const now = new Date()
+
+function currentJstDateParts() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]))
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+  }
+}
+
+function jstDateAtOffset(days, hourJst, minuteJst = 0) {
+  const { year, month, day } = currentJstDateParts()
+  return new Date(Date.UTC(year, month - 1, day + days, hourJst - 9, minuteJst, 0, 0)).toISOString()
+}
+
+function daysFromNow(days, hourJst, minuteJst = 0) {
+  return jstDateAtOffset(days, hourJst, minuteJst)
+}
+
+function daysAgo(days, hourJst, minuteJst = 0) {
+  return jstDateAtOffset(-days, hourJst, minuteJst)
+}
+
 // ------- デモイベント定義 -------
 const DEMO_EVENTS = [
   {
     title: '【運営展開用】受付中・参加/友達追加デモ',
-    event_date: '2026-06-06T19:00:00+09:00',
-    event_end_date: '2026-06-06T21:00:00+09:00',
+    event_date: daysFromNow(10, 19),
+    event_end_date: daysFromNow(10, 21),
     location: '市民体育館 メインアリーナ',
     location_url: 'https://www.google.com/maps/search/?api=1&query=%E5%B8%82%E6%B0%91%E4%BD%93%E8%82%B2%E9%A4%A8+%E3%83%A1%E3%82%A4%E3%83%B3%E3%82%A2%E3%83%AA%E3%83%BC%E3%83%8A',
     max_participants: 35,
@@ -34,8 +64,8 @@ const DEMO_EVENTS = [
   },
   {
     title: '【運営展開用】定員35名締切デモ',
-    event_date: '2026-06-13T19:00:00+09:00',
-    event_end_date: '2026-06-13T21:00:00+09:00',
+    event_date: daysFromNow(17, 19),
+    event_end_date: daysFromNow(17, 21),
     location: '中央スポーツセンター',
     location_url: 'https://www.google.com/maps/search/?api=1&query=%E4%B8%AD%E5%A4%AE%E3%82%B9%E3%83%9D%E3%83%BC%E3%83%84%E3%82%BB%E3%83%B3%E3%82%BF%E3%83%BC',
     max_participants: 35,
@@ -47,8 +77,8 @@ const DEMO_EVENTS = [
   },
   {
     title: '【運営展開用】閾値30名・再開待ちデモ',
-    event_date: '2026-06-20T19:00:00+09:00',
-    event_end_date: '2026-06-20T21:00:00+09:00',
+    event_date: daysFromNow(24, 19),
+    event_end_date: daysFromNow(24, 21),
     location: '東区体育館',
     location_url: 'https://www.google.com/maps/search/?api=1&query=%E6%9D%B1%E5%8C%BA%E4%BD%93%E8%82%B2%E9%A4%A8',
     max_participants: 30,
@@ -60,21 +90,21 @@ const DEMO_EVENTS = [
   },
   {
     title: '【運営展開用】締切日時超過デモ',
-    event_date: '2026-06-27T19:00:00+09:00',
-    event_end_date: '2026-06-27T21:00:00+09:00',
+    event_date: daysFromNow(31, 19),
+    event_end_date: daysFromNow(31, 21),
     location: '西区体育館',
     location_url: 'https://www.google.com/maps/search/?api=1&query=%E8%A5%BF%E5%8C%BA%E4%BD%93%E8%82%B2%E9%A4%A8',
     max_participants: 35,
     threshold: 30,
     status: 'closed',
     is_manual_close: false,
-    closes_at: '2026-05-20T00:00:00+09:00', // 過去の日時（日時超過で締切）
+    closes_at: daysAgo(1, 23, 59),
     publishes_at: null,
   },
   {
     title: '【運営展開用】下書き公開予約デモ',
-    event_date: '2026-07-04T19:00:00+09:00',
-    event_end_date: '2026-07-04T21:00:00+09:00',
+    event_date: daysFromNow(38, 19),
+    event_end_date: daysFromNow(38, 21),
     location: '南小学校 体育館',
     location_url: 'https://www.google.com/maps/search/?api=1&query=%E5%8D%97%E5%B0%8F%E5%AD%A6%E6%A0%A1+%E4%BD%93%E8%82%B2%E9%A4%A8',
     max_participants: 35,
@@ -82,7 +112,7 @@ const DEMO_EVENTS = [
     status: 'draft',
     is_manual_close: false,
     closes_at: null,
-    publishes_at: '2026-06-01T09:00:00+09:00',
+    publishes_at: daysFromNow(5, 9),
   },
 ]
 

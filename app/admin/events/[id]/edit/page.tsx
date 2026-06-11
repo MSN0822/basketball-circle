@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import type { Event } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -83,8 +83,13 @@ export default function AdminEditPage() {
         return
       }
 
-      supabase.from('events').select('*').eq('id', id).single().then(({ data }) => {
+      return fetch(`/api/admin/events?id=${encodeURIComponent(id)}`).then(async detailRes => {
+        if (!detailRes.ok) { router.replace('/admin'); return }
+
+        const detail = await detailRes.json() as { event?: Event }
+        const data = detail.event
         if (!data) { router.replace('/admin'); return }
+
         setTitle(data.title)
         setEventDate(toLocalDatetime(data.event_date))
         setEventEndDate(toLocalDatetime(data.event_end_date ?? null))

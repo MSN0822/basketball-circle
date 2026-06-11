@@ -11,7 +11,7 @@ type AuthMemberResult =
   | { member?: never; status: number; error: string }
 
 function getAdminSessionSecret(): string | null {
-  return process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD || null
+  return process.env.ADMIN_SESSION_SECRET || null
 }
 
 export function signAdminSessionPayload(payload: string): string | null {

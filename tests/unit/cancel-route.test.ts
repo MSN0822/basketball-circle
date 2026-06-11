@@ -15,6 +15,7 @@ type ParticipantInput = {
 
 async function loadRoute(options: {
   participant?: ParticipantInput | null
+  event?: { status: 'accepting' | 'closed' | 'draft'; publishes_at: string | null; closes_at: string | null } | null
   bearerToken?: string | null
   authMemberId?: string | null
   authStatus?: number
@@ -29,6 +30,10 @@ async function loadRoute(options: {
 
   const supabase = mockSupabaseFrom({
     selectSingleResult: { data: participant, error: null },
+    selectMaybeSingleResult: {
+      data: options.event === undefined ? { status: 'accepting', publishes_at: null, closes_at: null } : options.event,
+      error: null,
+    },
     rpcResult: options.rpcResult ?? { data: null, error: null },
   })
   const getBearerToken = vi.fn().mockReturnValue(options.bearerToken ?? null)
@@ -106,6 +111,22 @@ describe('POST /api/cancel', () => {
 
     expect(res.status).toBe(200)
     expect(supabase.spies.mockRpc).toHaveBeenCalledWith('cancel_participant', { p_participant_id: PARTICIPANT_ID })
+  })
+
+  it('rejects member cancellation for draft participants', async () => {
+    const { POST, supabase } = await loadRoute({
+      participant: { id: PARTICIPANT_ID, member_id: MEMBER_ID, user_code: '12345', status: 'active' },
+      event: { status: 'draft', publishes_at: null, closes_at: null },
+      bearerToken: 'token',
+      authMemberId: MEMBER_ID,
+    })
+
+    const res = await POST(jsonRequest({ participant_id: PARTICIPANT_ID, member_id: MEMBER_ID }, {
+      headers: { Authorization: 'Bearer token' },
+    }))
+
+    expect(res.status).toBe(404)
+    expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
   })
 
   it('rejects a bearer-authenticated member who does not own the participant', async () => {

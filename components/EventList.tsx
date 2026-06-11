@@ -4,10 +4,21 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Event, PublicParticipant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
+import { isVisibleToMembers, withEffectiveEventStatus } from '@/lib/event-visibility'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
 const supabase = getSupabase()
+
+async function getJsonAuthHeaders() {
+  const { data } = await supabase.auth.getSession()
+  return {
+    'Content-Type': 'application/json',
+    ...(data.session?.access_token
+      ? { Authorization: `Bearer ${data.session.access_token}` }
+      : {}),
+  }
+}
 
 function formatDateRange(startStr: string, endStr: string | null): string {
   const start = new Date(startStr)
@@ -48,7 +59,10 @@ export default function EventList({ events }: { events: Event[] }) {
       .select('*')
       .order('event_date', { ascending: true })
 
-    if (data) setRealtimeEvents(data.filter(event => event.status !== 'draft'))
+    if (data) {
+      const nowMs = Date.now()
+      setRealtimeEvents(data.filter(event => isVisibleToMembers(event, nowMs)).map(event => withEffectiveEventStatus(event, nowMs)))
+    }
   }, [])
 
   useEffect(() => {
@@ -63,11 +77,12 @@ export default function EventList({ events }: { events: Event[] }) {
         .single()
       if (!member) return
 
-      const { data: participations } = await supabase
-        .from('participants_public')
-        .select('id,event_id,name,member_id,status,slot_number,created_at,display_code')
-        .eq('member_id', member.id)
-        .in('status', ['active', 'waitlist'])
+      const res = await fetch(`/api/participants?member_id=${encodeURIComponent(member.id)}`, {
+        headers: await getJsonAuthHeaders(),
+      })
+      if (!res.ok) return
+
+      const { participations } = await res.json() as { participations?: PublicParticipant[] }
 
       if (participations) {
         const map: Record<string, PublicParticipant> = {}

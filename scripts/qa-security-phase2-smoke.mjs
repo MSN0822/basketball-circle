@@ -17,6 +17,7 @@ const env = Object.fromEntries(
 )
 
 const BASE_URL = process.env.QA_BASE_URL ?? 'https://basketball-circle.vercel.app'
+const PRODUCTION_ORIGINS = new Set(['https://basketball-circle.vercel.app'])
 const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_ANON_KEY = env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY
@@ -25,6 +26,15 @@ const ADMIN_PASSWORD = env.ADMIN_PASSWORD
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !ADMIN_PASSWORD) {
   throw new Error('Required QA environment values are missing.')
 }
+
+function requireProductionQaAllowed(baseUrl) {
+  const origin = new URL(baseUrl).origin
+  if (PRODUCTION_ORIGINS.has(origin) && process.env.ALLOW_PRODUCTION_QA !== '1') {
+    throw new Error(`Refusing to run mutation QA against ${origin}. Set ALLOW_PRODUCTION_QA=1 to confirm production QA.`)
+  }
+}
+
+requireProductionQaAllowed(BASE_URL)
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },

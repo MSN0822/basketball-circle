@@ -1,5 +1,6 @@
 import { Event, PublicParticipant } from '@/lib/supabase'
 import { getServerSupabase } from '@/lib/supabase-server'
+import { isVisibleToMembers, withEffectiveEventStatus } from '@/lib/event-visibility'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ParticipantList from '@/components/ParticipantList'
@@ -12,15 +13,20 @@ export const revalidate = 0
 
 async function getEvent(id: string): Promise<Event | null> {
   const supabase = getServerSupabase()
-  const { data } = await supabase.from('events').select('*').eq('id', id).single()
-  return data
+  const { data } = await supabase
+    .from('events')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle<Event>()
+  if (!data || !isVisibleToMembers(data)) return null
+  return withEffectiveEventStatus(data)
 }
 
 async function getParticipants(eventId: string): Promise<PublicParticipant[]> {
   const supabase = getServerSupabase()
   const { data } = await supabase
     .from('participants_public')
-    .select('id,event_id,name,member_id,status,slot_number,created_at,display_code')
+    .select('id,event_id,name,status,slot_number,created_at,display_code')
     .eq('event_id', eventId)
     .neq('status', 'cancelled')
     .order('slot_number', { ascending: true })
@@ -58,10 +64,11 @@ function formatDateRange(startStr: string, endStr: string | null): string {
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [event, participants] = await Promise.all([getEvent(id), getParticipants(id)])
+  const event = await getEvent(id)
 
   if (!event) notFound()
 
+  const participants = await getParticipants(id)
   const active = participants.filter(p => p.status === 'active')
   return (
     <main className="max-w-lg mx-auto px-4 py-8 space-y-6">

@@ -103,11 +103,11 @@ describe('admin session token', () => {
     expect(verifyAdminSessionToken('', now)).toBe(false)
   })
 
-  it('returns null when no signing secret is configured', () => {
+  it('returns null when ADMIN_SESSION_SECRET is not configured', () => {
     const savedSecret = process.env.ADMIN_SESSION_SECRET
     const savedPassword = process.env.ADMIN_PASSWORD
     delete process.env.ADMIN_SESSION_SECRET
-    delete process.env.ADMIN_PASSWORD
+    process.env.ADMIN_PASSWORD = 'password-is-not-a-signing-secret'
     try {
       expect(createAdminSessionToken(now)).toBeNull()
     } finally {

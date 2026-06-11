@@ -42,6 +42,10 @@ async function loadRoute(options: {
 
   const supabase = mockSupabaseFrom({
     selectSingleResult: { data: options.currentEvent ?? baseEvent, error: null },
+    selectMaybeSingleResult: {
+      data: options.currentEvent === undefined ? { id: EVENT_ID } : options.currentEvent,
+      error: null,
+    },
     insertSingleResult: options.insertResult ?? { data: baseEvent, error: null },
     updateSingleResult: options.updateResult ?? { data: baseEvent, error: null },
     deleteEqResult: options.deleteResult ?? { error: null },
@@ -201,7 +205,7 @@ describe('PATCH /api/admin/events', () => {
 })
 
 describe('DELETE /api/admin/events', () => {
-  it('rejects malformed id before deleting participants or events', async () => {
+  it('rejects malformed id before deleting an event', async () => {
     const { DELETE, supabase } = await loadRoute()
 
     const res = await DELETE(jsonRequest({ id: 'bad-id' }, { method: 'DELETE' }))
@@ -210,13 +214,33 @@ describe('DELETE /api/admin/events', () => {
     expect(supabase.spies.mockFrom).not.toHaveBeenCalled()
   })
 
-  it('aborts event deletion if participant deletion fails', async () => {
+  it('deletes only the event and relies on database cascade for participants', async () => {
+    const { DELETE, supabase } = await loadRoute()
+
+    const res = await DELETE(jsonRequest({ id: EVENT_ID }, { method: 'DELETE' }))
+
+    expect(res.status).toBe(200)
+    expect(supabase.spies.mockFrom).toHaveBeenCalledTimes(2)
+    expect(supabase.spies.mockFrom).toHaveBeenCalledWith('events')
+    expect(supabase.spies.deleteFn).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns 404 when deleting a valid but nonexistent event id', async () => {
+    const { DELETE, supabase } = await loadRoute({ currentEvent: null })
+
+    const res = await DELETE(jsonRequest({ id: EVENT_ID }, { method: 'DELETE' }))
+
+    expect(res.status).toBe(404)
+    expect(supabase.spies.deleteFn).not.toHaveBeenCalled()
+  })
+
+  it('returns an error when event deletion fails', async () => {
     const { DELETE, supabase } = await loadRoute({ deleteResult: { error: { message: 'delete failed' } } })
 
     const res = await DELETE(jsonRequest({ id: EVENT_ID }, { method: 'DELETE' }))
 
     expect(res.status).toBe(500)
-    expect(supabase.spies.mockFrom).toHaveBeenCalledTimes(1)
-    expect(supabase.spies.mockFrom).toHaveBeenCalledWith('participants')
+    expect(supabase.spies.mockFrom).toHaveBeenCalledTimes(2)
+    expect(supabase.spies.mockFrom).toHaveBeenCalledWith('events')
   })
 })

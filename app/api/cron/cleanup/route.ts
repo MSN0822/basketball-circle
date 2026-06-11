@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabase } from '@/lib/supabase-server'
+import { safeCompare } from '@/lib/api-auth'
 
 const DELETE_BATCH_SIZE = 100
 
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
   }
 
   const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  if (!safeCompare(authHeader, `Bearer ${cronSecret}`)) {
     return NextResponse.json({ error: '認証エラー' }, { status: 401 })
   }
 

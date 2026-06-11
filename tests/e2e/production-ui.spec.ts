@@ -1,8 +1,10 @@
 import { test, expect, Page } from '@playwright/test'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { cleanupQaEvents, requireProductionE2eAllowed, STALE_QA_EVENT_PREFIXES, staleQaCutoff } from './qa-cleanup'
 
-const runId = `QA_KEEP_UI_${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
+const runId = `QA_E2E_UI_${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
 const tokyoDate = new Intl.DateTimeFormat('sv-SE', {
   timeZone: 'Asia/Tokyo',
   year: 'numeric',
@@ -90,6 +92,7 @@ test.describe('production UI smoke', () => {
   let qaAuthPassword = ''
   let eventId = ''
   let eventTitle = ''
+  let supabaseAdmin: SupabaseClient
 
   test.beforeAll(async () => {
     const env = await readLocalEnv()
@@ -97,6 +100,11 @@ test.describe('production UI smoke', () => {
     qaAuthEmail = process.env.QA_AUTH_EMAIL ?? env.QA_AUTH_EMAIL ?? ''
     qaAuthPassword = process.env.QA_AUTH_PASSWORD ?? env.QA_AUTH_PASSWORD ?? ''
     baseURL = process.env.QA_BASE_URL ?? baseURL
+    requireProductionE2eAllowed(baseURL)
+    supabaseAdmin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    await cleanupQaEvents(supabaseAdmin, STALE_QA_EVENT_PREFIXES, { olderThanIso: staleQaCutoff() })
 
     // クッキー方式の管理者セッションを取得（旧 x-admin-password ヘッダーは廃止）
     const session = await loginAdmin(baseURL, adminPassword)
@@ -126,6 +134,10 @@ test.describe('production UI smoke', () => {
     const body = created.body as { event?: { id?: string } }
     expect(body.event?.id).toBeTruthy()
     eventId = body.event!.id!
+  })
+
+  test.afterAll(async () => {
+    if (supabaseAdmin) await cleanupQaEvents(supabaseAdmin, [runId])
   })
 
   // 管理者セッションクッキーをブラウザコンテキストへ注入する（localStorage 廃止）

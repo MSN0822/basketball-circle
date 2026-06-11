@@ -90,6 +90,22 @@ describe('POST /api/members', () => {
     expect(res.status).toBe(403)
     expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
   })
+
+  it('does not fall back to legacy inserts when register_member is missing', async () => {
+    const { POST, supabase } = await loadRoute({
+      rpcResult: {
+        data: null,
+        error: { code: 'PGRST202', message: 'register_member not found' },
+      },
+    })
+
+    const res = await POST(jsonRequest({ name: 'Member A', auth_user_id: AUTH_USER_ID }))
+    const body = await responseJson<{ error?: string }>(res)
+
+    expect(res.status).toBe(500)
+    expect(body.error).toBe('会員登録RPCが未適用です')
+    expect(supabase.spies.insert).not.toHaveBeenCalled()
+  })
 })
 
 describe('PATCH /api/members', () => {

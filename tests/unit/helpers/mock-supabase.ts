@@ -7,6 +7,8 @@ type QueryResult = {
 
 type MockSupabaseConfig = {
   selectSingleResult?: QueryResult
+  selectMaybeSingleResult?: QueryResult
+  selectOrderResult?: QueryResult
   rpcResult?: QueryResult
   insertSingleResult?: QueryResult
   updateSingleResult?: QueryResult
@@ -15,14 +17,32 @@ type MockSupabaseConfig = {
 
 export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
   const selectSingleResult = config.selectSingleResult ?? { data: null, error: null }
+  const selectMaybeSingleResult = config.selectMaybeSingleResult ?? { data: null, error: null }
+  const selectOrderResult = config.selectOrderResult ?? { data: null, error: null }
   const rpcResult = config.rpcResult ?? { data: null, error: null }
   const insertSingleResult = config.insertSingleResult ?? { data: null, error: null }
   const updateSingleResult = config.updateSingleResult ?? { data: null, error: null }
   const deleteEqResult = config.deleteEqResult ?? { error: null }
 
   const selectSingle = vi.fn().mockResolvedValue(selectSingleResult)
-  const selectEq = vi.fn().mockReturnValue({ single: selectSingle })
-  const select = vi.fn().mockReturnValue({ eq: selectEq })
+  const selectMaybeSingle = vi.fn().mockResolvedValue(selectMaybeSingleResult)
+  const selectOrder = vi.fn().mockResolvedValue(selectOrderResult)
+  const selectQuery = {
+    eq: vi.fn(),
+    neq: vi.fn(),
+    like: vi.fn(),
+    in: vi.fn(),
+    limit: vi.fn(),
+    order: selectOrder,
+    single: selectSingle,
+    maybeSingle: selectMaybeSingle,
+  }
+  selectQuery.eq.mockReturnValue(selectQuery)
+  selectQuery.neq.mockReturnValue(selectQuery)
+  selectQuery.like.mockReturnValue(selectQuery)
+  selectQuery.in.mockReturnValue(selectQuery)
+  selectQuery.limit.mockReturnValue(selectQuery)
+  const select = vi.fn().mockReturnValue(selectQuery)
 
   const insertSingle = vi.fn().mockResolvedValue(insertSingleResult)
   const insertSelect = vi.fn().mockReturnValue({ single: insertSingle })
@@ -55,8 +75,14 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
       mockFrom,
       mockRpc,
       select,
-      selectEq,
+      selectEq: selectQuery.eq,
+      selectNeq: selectQuery.neq,
+      selectLike: selectQuery.like,
+      selectIn: selectQuery.in,
+      selectLimit: selectQuery.limit,
+      selectOrder,
       selectSingle,
+      selectMaybeSingle,
       insert,
       update,
       updateEq,
@@ -65,4 +91,3 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
     },
   }
 }
-

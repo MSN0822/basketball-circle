@@ -19,36 +19,6 @@ type UpdateMemberNameResult = {
   member?: Member
 }
 
-type RpcError = {
-  code?: string
-  message?: string
-}
-
-function shouldFallbackToLegacyRegister(error: RpcError): boolean {
-  return error.code === 'PGRST202' || Boolean(error.message?.includes('register_member'))
-}
-
-async function legacyRegister(name: string, authUserId: string) {
-  const { data: latest } = await supabase
-    .from('members')
-    .select('member_number')
-    .order('member_number', { ascending: false })
-    .limit(1)
-    .single<Member>()
-
-  const nextNum = latest ? parseInt(latest.member_number) + 1 : 1
-  const memberNumber = String(nextNum).padStart(3, '0')
-
-  const { data, error } = await supabase
-    .from('members')
-    .insert({ name, member_number: memberNumber, auth_user_id: authUserId })
-    .select()
-    .single<Member>()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ member: data })
-}
-
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null) as { name?: unknown; auth_user_id?: unknown } | null
   if (!body) {
@@ -79,8 +49,8 @@ export async function POST(req: NextRequest) {
   })
 
   if (error) {
-    if (shouldFallbackToLegacyRegister(error)) {
-      return legacyRegister(trimmedName, auth_user_id)
+    if (error.code === 'PGRST202' || error.message?.includes('register_member')) {
+      return NextResponse.json({ error: '会員登録RPCが未適用です' }, { status: 500 })
     }
     if (error.code === '23503') {
       return NextResponse.json({ error: 'auth_user_id が正しくありません' }, { status: 400 })

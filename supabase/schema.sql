@@ -53,7 +53,7 @@ alter table members enable row level security;
 alter table participants enable row level security;
 
 -- 現状のアプリ実装に合わせた公開ポリシー
-create policy "events_select" on events for select using (true);
+create policy "events_select" on events for select to authenticated using (status <> 'draft' or publishes_at <= now());
 create policy "events_insert_none" on events for insert with check (false);
 create policy "events_update_none" on events for update using (false) with check (false);
 create policy "events_delete_none" on events for delete using (false);
@@ -73,20 +73,22 @@ create policy "participants_delete_none" on participants for delete using (false
 drop view if exists public.participants_public;
 create view public.participants_public with (security_invoker = false) as
 select
-  id,
-  event_id,
-  name,
-  member_id,
-  status,
-  slot_number,
-  created_at,
+  p.id,
+  p.event_id,
+  p.name,
+  p.status,
+  p.slot_number,
+  p.created_at,
   case
-    when user_code like 'guest:%:%' then split_part(user_code, ':', 3)
+    when p.user_code like 'guest:%:%' then split_part(p.user_code, ':', 3)
     else null
   end as display_code
-from public.participants;
+from public.participants p
+join public.events e on e.id = p.event_id
+where e.status <> 'draft' or e.publishes_at <= now();
 revoke all on public.participants_public from public;
-grant select on public.participants_public to anon, authenticated;
+revoke all on public.participants_public from anon;
+grant select on public.participants_public to authenticated;
 
 -- 管理者ログインのレート制限状態（server-side service_role のみアクセス）
 create table if not exists public.admin_login_attempts (

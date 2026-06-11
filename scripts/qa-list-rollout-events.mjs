@@ -19,7 +19,7 @@ const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE
 
 const { data, error } = await supabase
   .from('events')
-  .select('id,title,status,event_date,event_end_date,max_participants,threshold,created_at')
+  .select('id,title,status,event_date,event_end_date,max_participants,threshold,publishes_at,created_at')
   .like('title', '【運営展開用】%')
   .order('event_date', { ascending: true })
 
@@ -43,6 +43,7 @@ console.log(JSON.stringify({
     event_end_date: event.event_end_date,
     max_participants: event.max_participants,
     threshold: event.threshold,
+    publishes_at: event.publishes_at,
     activeParticipants: (participants ?? []).filter(p => p.event_id === event.id && p.status === 'active').length,
   })),
 }, null, 2))

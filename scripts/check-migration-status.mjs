@@ -149,6 +149,32 @@ const checks = [
             AND c.relkind='v'
             AND COALESCE(c.reloptions, ARRAY[]::text[]) @> ARRAY['security_invoker=false']
         )
+        AND EXISTS(
+          SELECT 1 FROM pg_policies
+          WHERE schemaname='public'
+            AND tablename='events'
+            AND policyname='events_select'
+            AND cmd='SELECT'
+            AND roles::text = '{authenticated}'
+            AND qual LIKE '%publishes_at%'
+        )
+        AND EXISTS(
+          SELECT 1
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname='public'
+            AND c.relname='participants_public'
+            AND pg_get_viewdef(c.oid) LIKE '%publishes_at%'
+        )
+        AND NOT EXISTS(
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema='public'
+            AND table_name='participants_public'
+            AND column_name='member_id'
+        )
+        AND NOT has_table_privilege('anon', 'public.participants_public', 'select')
+        AND has_table_privilege('authenticated', 'public.participants_public', 'select')
         AS applied
     `,
     interpret: rows => booleanStatus(rows[0]?.applied),

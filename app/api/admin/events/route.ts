@@ -162,13 +162,13 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   if (!checkAdmin(req)) {
-    return jsonError('隱崎ｨｼ繧ｨ繝ｩ繝ｼ', 403)
+    return jsonError('認証エラー', 403)
   }
 
   const id = req.nextUrl.searchParams.get('id')
   if (id !== null) {
     if (!isValidUuid(id)) {
-      return jsonError('id 縺ｮ蠖｢蠑上′豁｣縺励￥縺ゅｊ縺ｾ縺帙ｓ')
+      return jsonError('id の形式が正しくありません')
     }
 
     const { data: event, error: eventError } = await supabase
@@ -178,7 +178,7 @@ export async function GET(req: NextRequest) {
       .single<Event>()
 
     if (eventError || !event) {
-      return jsonError('繧､繝吶Φ繝医′隕九▽縺九ｊ縺ｾ縺帙ｓ', 404)
+      return jsonError('イベントが見つかりません', 404)
     }
 
     const { data: participants, error: participantsError } = await supabase
@@ -212,11 +212,13 @@ export async function DELETE(req: NextRequest) {
     return jsonError('id の形式が正しくありません')
   }
 
-  const { error: participantsError } = await supabase
-    .from('participants')
-    .delete()
-    .eq('event_id', id)
-  if (participantsError) return jsonError(participantsError.message, 500)
+  const { data: existing, error: lookupError } = await supabase
+    .from('events')
+    .select('id')
+    .eq('id', id)
+    .maybeSingle()
+  if (lookupError) return jsonError(lookupError.message, 500)
+  if (!existing) return jsonError('イベントが見つかりません', 404)
 
   const { error } = await supabase.from('events').delete().eq('id', id)
 

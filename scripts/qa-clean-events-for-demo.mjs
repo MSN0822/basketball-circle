@@ -33,25 +33,41 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 
 const now = new Date()
 const evidenceDir = path.join(root, 'docs', 'qa', 'evidence', '2026-05-27-demo-cleanup')
+const DEMO_EVENT_TITLE_PREFIX = '【運営確認用】'
+
+function currentJstDateParts() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]))
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+  }
+}
+
+function jstDateAtOffset(days, hourJst, minuteJst = 0) {
+  const { year, month, day } = currentJstDateParts()
+  return new Date(Date.UTC(year, month - 1, day + days, hourJst - 9, minuteJst, 0, 0)).toISOString()
+}
 
 function daysFromNow(days, hourJst, minuteJst) {
-  const date = new Date(now)
-  date.setUTCDate(date.getUTCDate() + days)
-  date.setUTCHours(hourJst - 9, minuteJst, 0, 0)
-  return date.toISOString()
+  return jstDateAtOffset(days, hourJst, minuteJst)
 }
 
 function daysAgo(days, hourJst, minuteJst) {
-  const date = new Date(now)
-  date.setUTCDate(date.getUTCDate() - days)
-  date.setUTCHours(hourJst - 9, minuteJst, 0, 0)
-  return date.toISOString()
+  return jstDateAtOffset(-days, hourJst, minuteJst)
 }
 
 async function listEvents() {
   const { data, error } = await supabase
     .from('events')
     .select('id, title, status, event_date, event_end_date, max_participants, threshold, created_at')
+    .like('title', `${DEMO_EVENT_TITLE_PREFIX}%`)
     .order('created_at', { ascending: false })
 
   if (error) throw error

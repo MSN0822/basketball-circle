@@ -3,9 +3,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Event, Member, PublicParticipant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
+import { withEffectiveEventStatus } from '@/lib/event-visibility'
 
 const supabase = getSupabase()
 import { Badge } from '@/components/ui/badge'
+
+async function getJsonAuthHeaders() {
+  const { data } = await supabase.auth.getSession()
+  return {
+    'Content-Type': 'application/json',
+    ...(data.session?.access_token
+      ? { Authorization: `Bearer ${data.session.access_token}` }
+      : {}),
+  }
+}
 
 interface Props {
   event: Event
@@ -16,6 +27,26 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
   const [participants, setParticipants] = useState<PublicParticipant[]>(initialParticipants)
   const [currentEvent, setCurrentEvent] = useState<Event>(event)
   const [member, setMember] = useState<Member | null>(null)
+  const [myParticipantIds, setMyParticipantIds] = useState<Set<string>>(new Set())
+
+  const reloadMine = useCallback(async (memberId: string) => {
+    const res = await fetch(`/api/participants?event_id=${encodeURIComponent(event.id)}&member_id=${encodeURIComponent(memberId)}`, {
+      headers: await getJsonAuthHeaders(),
+    })
+    if (!res.ok) {
+      setMyParticipantIds(new Set())
+      return
+    }
+
+    const data = await res.json().catch(() => ({})) as {
+      participation?: PublicParticipant | null
+      guests?: PublicParticipant[]
+    }
+    setMyParticipantIds(new Set([
+      ...(data.participation ? [data.participation.id] : []),
+      ...((data.guests ?? []).map(guest => guest.id)),
+    ]))
+  }, [event.id])
 
   useEffect(() => {
     async function load() {
@@ -26,15 +57,18 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
         .select('*')
         .eq('auth_user_id', user.id)
         .single()
-      if (data) setMember(data)
+      if (data) {
+        setMember(data)
+        await reloadMine(data.id)
+      }
     }
     load()
-  }, [])
+  }, [reloadMine])
 
   const reloadParticipants = useCallback(async () => {
     const { data } = await supabase
       .from('participants_public')
-      .select('id,event_id,name,member_id,status,slot_number,created_at,display_code')
+      .select('id,event_id,name,status,slot_number,created_at,display_code')
       .eq('event_id', event.id)
       .neq('status', 'cancelled')
       .order('slot_number', { ascending: true })
@@ -49,7 +83,7 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
       .eq('id', event.id)
       .single<Event>()
 
-    if (data) setCurrentEvent(data)
+    if (data) setCurrentEvent(withEffectiveEventStatus(data))
   }, [event.id])
 
   useEffect(() => {
@@ -61,20 +95,22 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
         () => {
           reloadParticipants()
           reloadEvent()
+          if (member) reloadMine(member.id)
         }
       )
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [event.id, reloadEvent, reloadParticipants])
+  }, [event.id, member, reloadEvent, reloadMine, reloadParticipants])
 
   useEffect(() => {
     const interval = window.setInterval(() => {
       reloadParticipants()
       reloadEvent()
+      if (member) reloadMine(member.id)
     }, 15_000)
     return () => { window.clearInterval(interval) }
-  }, [reloadEvent, reloadParticipants])
+  }, [member, reloadEvent, reloadMine, reloadParticipants])
 
   useEffect(() => {
     const channel = supabase
@@ -84,7 +120,7 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
         { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${event.id}` },
         payload => {
           const next = payload.new as Partial<Event>
-          setCurrentEvent(current => ({ ...current, ...next }))
+          setCurrentEvent(current => withEffectiveEventStatus({ ...current, ...next }))
         }
       )
       .subscribe()
@@ -98,18 +134,19 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
       if (!detail?.eventId || detail.eventId === event.id) {
         reloadParticipants()
         reloadEvent()
+        if (member) reloadMine(member.id)
       }
     }
 
     window.addEventListener('participants-changed', handleParticipantsChanged)
     return () => { window.removeEventListener('participants-changed', handleParticipantsChanged) }
-  }, [event.id, reloadEvent, reloadParticipants])
+  }, [event.id, member, reloadEvent, reloadMine, reloadParticipants])
 
   const active = participants.filter(p => p.status === 'active')
   const waitlist = participants.filter(p => p.status === 'waitlist')
 
   const myParticipation = member
-    ? participants.find(p => p.member_id === member.id)
+    ? participants.find(p => myParticipantIds.has(p.id))
     : null
 
   return (
@@ -138,13 +175,13 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
             <div
               key={p.id}
               className={`flex items-center justify-between px-3 py-2 rounded-md ${
-                member && p.member_id === member.id ? 'bg-blue-50 border border-blue-200' : 'bg-muted/50'
+                member && myParticipantIds.has(p.id) ? 'bg-blue-50 border border-blue-200' : 'bg-muted/50'
               }`}
             >
               <span className="text-sm">
                 <span className="text-muted-foreground mr-2">{p.slot_number}.</span>
                 {p.name}
-                {member && p.member_id === member.id && (
+                {member && myParticipantIds.has(p.id) && (
                   <span className="ml-2 text-xs text-blue-600">（自分）</span>
                 )}
                 {p.display_code && (
@@ -173,13 +210,13 @@ export default function ParticipantList({ event, initialParticipants }: Props) {
               <div
                 key={p.id}
                 className={`flex items-center px-3 py-2 rounded-md ${
-                  member && p.member_id === member.id ? 'bg-blue-50 border border-blue-200' : 'bg-muted/30'
+                  member && myParticipantIds.has(p.id) ? 'bg-blue-50 border border-blue-200' : 'bg-muted/30'
                 }`}
               >
                 <span className="text-sm text-muted-foreground">
                   <span className="mr-2">待{p.slot_number}.</span>
                   {p.name}
-                  {member && p.member_id === member.id && (
+                  {member && myParticipantIds.has(p.id) && (
                     <span className="ml-2 text-xs text-blue-600">（自分）</span>
                   )}
                   {p.display_code && (

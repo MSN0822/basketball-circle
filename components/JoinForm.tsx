@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Plus, X } from 'lucide-react'
 import { Event, Member, PublicParticipant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
+import { withEffectiveEventStatus } from '@/lib/event-visibility'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -66,26 +67,14 @@ export default function JoinForm({ event }: Props) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [currentEvent, setCurrentEvent] = useState<Event>(event)
 
-  const loadParticipation = useCallback(async (memberId: string) => {
-    const { data } = await supabase
-      .from('participants_public')
-      .select('id,event_id,name,member_id,status,slot_number,created_at,display_code')
-      .eq('event_id', event.id)
-      .eq('member_id', memberId)
-      .neq('status', 'cancelled')
-      .limit(1)
-      .maybeSingle()
-
-    setParticipation((data as PublicParticipant | null) ?? null)
-  }, [event.id])
-
-  const loadGuests = useCallback(async (memberId: string) => {
+  const loadMine = useCallback(async (memberId: string) => {
     const res = await fetch(`/api/participants?event_id=${encodeURIComponent(event.id)}&member_id=${encodeURIComponent(memberId)}`, {
       headers: await getJsonAuthHeaders(),
     })
     if (!res.ok) return
 
     const data = await res.json().catch(() => ({})) as MineResponse
+    setParticipation(data.participation ?? null)
     const fetchedGuests = data.guests ?? []
     setGuests(fetchedGuests)
     setGuestNames(current => {
@@ -102,7 +91,7 @@ export default function JoinForm({ event }: Props) {
       .eq('id', event.id)
       .single<Event>()
 
-    if (data) setCurrentEvent(data)
+    if (data) setCurrentEvent(withEffectiveEventStatus(data))
   }, [event.id])
 
   const loadActiveCount = useCallback(async () => {
@@ -116,8 +105,8 @@ export default function JoinForm({ event }: Props) {
   }, [event.id])
 
   const reloadMine = useCallback(async (memberId: string) => {
-    await Promise.all([loadParticipation(memberId), loadGuests(memberId), loadActiveCount(), loadEvent()])
-  }, [loadActiveCount, loadEvent, loadGuests, loadParticipation])
+    await Promise.all([loadMine(memberId), loadActiveCount(), loadEvent()])
+  }, [loadActiveCount, loadEvent, loadMine])
 
   useEffect(() => {
     async function load() {
@@ -168,7 +157,7 @@ export default function JoinForm({ event }: Props) {
         { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${event.id}` },
         payload => {
           const next = payload.new as Partial<Event>
-          setCurrentEvent(current => ({ ...current, ...next }))
+          setCurrentEvent(current => withEffectiveEventStatus({ ...current, ...next }))
         }
       )
       .subscribe()

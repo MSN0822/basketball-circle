@@ -21,7 +21,7 @@ function toBase64Url(buffer: ArrayBuffer): string {
 }
 
 export async function signAdminSessionPayloadEdge(payload: string): Promise<string | null> {
-  const secret = process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD
+  const secret = process.env.ADMIN_SESSION_SECRET
   if (!secret) return null
 
   const encoder = new TextEncoder()
