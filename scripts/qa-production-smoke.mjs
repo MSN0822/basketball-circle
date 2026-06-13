@@ -239,6 +239,24 @@ async function getEvent(eventId) {
   return data ?? null
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function waitForEventStatus(eventId, expectedStatus, timeoutMs = 100000) {
+  const startedAt = Date.now()
+  let attempts = 0
+  let event = await getEvent(eventId)
+
+  while (event?.status !== expectedStatus && Date.now() - startedAt < timeoutMs) {
+    attempts += 1
+    await sleep(5000)
+    event = await getEvent(eventId)
+  }
+
+  return { event, attempts, elapsedMs: Date.now() - startedAt }
+}
+
 async function getParticipants(eventId) {
   const { data, error } = await supabaseAdmin
     .from('participants')
@@ -419,9 +437,7 @@ await record('A-04', 'Create QA auth users and member records', async () => {
 })
 
 await record('A-05', 'Due draft is promoted before member read surfaces expose it', async () => {
-  const cronRes = await appJson('/api/cron/publish-drafts', {
-    headers: { Authorization: `Bearer ${CRON_SECRET}` },
-  })
+  const promotion = await waitForEventStatus(draftEvent.id, 'accepting')
   const authHeaders = { Authorization: `Bearer ${memberA.accessToken}` }
   const eventsRes = await supabaseRest('events', `?id=eq.${draftEvent.id}&select=id,title,status,publishes_at`, {
     headers: authHeaders,
@@ -430,14 +446,15 @@ await record('A-05', 'Due draft is promoted before member read surfaces expose i
     headers: authHeaders,
   })
   return {
-    cronStatus: cronRes.status,
-    cronOk: cronRes.body?.ok,
+    promotionAttempts: promotion.attempts,
+    promotionElapsedMs: promotion.elapsedMs,
+    promotedStatus: promotion.event?.status,
     eventsStatus: eventsRes.status,
     eventRows: Array.isArray(eventsRes.body) ? eventsRes.body.length : null,
     participantsStatus: participantsRes.status,
     participantRows: Array.isArray(participantsRes.body) ? participantsRes.body.length : null,
     passed:
-      cronRes.ok &&
+      promotion.event?.status === 'accepting' &&
       eventsRes.ok &&
       participantsRes.ok &&
       Array.isArray(eventsRes.body) &&

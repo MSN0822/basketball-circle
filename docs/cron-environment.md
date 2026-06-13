@@ -19,8 +19,11 @@ Authorization: Bearer <CRON_SECRET>
 Do not commit the real value. Store it only in `.env.local` for local testing and
 in the Vercel project Environment Variables for deployed environments.
 
-`/api/cron/publish-drafts` promotes due draft events to `accepting` so scheduled
-events move from the admin draft list into the normal member-facing event list.
-The Vercel cron schedule is configured for once per minute. Vercel documents
-that this precision requires a Pro or Enterprise plan; Hobby plans only allow
-daily cron runs.
+Scheduled publishing is handled by Supabase Cron, not Vercel Cron, so it can run
+once per minute even while the Vercel project is on a Hobby plan. The database
+job calls `public.publish_due_draft_events()` and promotes due draft events to
+`accepting`, moving them from the admin draft list into the normal member-facing
+event list.
+
+`/api/cron/publish-drafts` remains available as an authenticated manual fallback
+for the same promotion logic, but it is not scheduled from `vercel.json`.
