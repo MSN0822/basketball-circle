@@ -18,7 +18,7 @@ async function getEvents(): Promise<Event[]> {
 
   const nowMs = Date.now()
   return events
-    .filter(e => isVisibleToMembers(e, nowMs))
+    .filter(e => isVisibleToMembers(e))
     .map(e => withEffectiveEventStatus(e, nowMs))
 }
 

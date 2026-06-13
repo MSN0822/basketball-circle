@@ -123,7 +123,7 @@ const checks = [
   },
   {
     id: 'Q9',
-    item: 'public read model: members own select + participants_public view',
+    item: 'public read model: members own select + drafts hidden from public surfaces',
     sql: `
       SELECT
         EXISTS(
@@ -150,13 +150,15 @@ const checks = [
             AND COALESCE(c.reloptions, ARRAY[]::text[]) @> ARRAY['security_invoker=false']
         )
         AND EXISTS(
-          SELECT 1 FROM pg_policies
+          SELECT 1
+          FROM pg_policies
           WHERE schemaname='public'
             AND tablename='events'
             AND policyname='events_select'
             AND cmd='SELECT'
             AND roles::text = '{authenticated}'
-            AND qual LIKE '%publishes_at%'
+            AND qual LIKE '%draft%'
+            AND qual NOT LIKE '%publishes_at%'
         )
         AND EXISTS(
           SELECT 1
@@ -164,7 +166,8 @@ const checks = [
           JOIN pg_namespace n ON n.oid = c.relnamespace
           WHERE n.nspname='public'
             AND c.relname='participants_public'
-            AND pg_get_viewdef(c.oid) LIKE '%publishes_at%'
+            AND pg_get_viewdef(c.oid) LIKE '%draft%'
+            AND pg_get_viewdef(c.oid) NOT LIKE '%publishes_at%'
         )
         AND NOT EXISTS(
           SELECT 1

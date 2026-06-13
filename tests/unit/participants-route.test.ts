@@ -97,6 +97,22 @@ describe('POST /api/participants', () => {
     expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
   })
 
+  it('rejects due draft events before calling join_event', async () => {
+    const { POST, supabase } = await loadRoute({
+      visibleEvent: {
+        id: EVENT_ID,
+        status: 'draft',
+        publishes_at: '2026-06-07T00:00:00.000Z',
+        closes_at: null,
+      },
+    })
+
+    const res = await POST(jsonRequest({ event_id: EVENT_ID, name: 'Guest', member_id: MEMBER_ID, guest: true }))
+
+    expect(res.status).toBe(404)
+    expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
+  })
+
   it('uses the authenticated member id as the canonical RPC member id', async () => {
     const { POST, supabase, mocks } = await loadRoute({ authMemberId: MEMBER_ID })
 

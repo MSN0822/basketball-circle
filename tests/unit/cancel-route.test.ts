@@ -129,6 +129,22 @@ describe('POST /api/cancel', () => {
     expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
   })
 
+  it('rejects member cancellation for due draft participants', async () => {
+    const { POST, supabase } = await loadRoute({
+      participant: { id: PARTICIPANT_ID, member_id: MEMBER_ID, user_code: '12345', status: 'active' },
+      event: { status: 'draft', publishes_at: '2026-06-07T00:00:00.000Z', closes_at: null },
+      bearerToken: 'token',
+      authMemberId: MEMBER_ID,
+    })
+
+    const res = await POST(jsonRequest({ participant_id: PARTICIPANT_ID, member_id: MEMBER_ID }, {
+      headers: { Authorization: 'Bearer token' },
+    }))
+
+    expect(res.status).toBe(404)
+    expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
+  })
+
   it('rejects a bearer-authenticated member who does not own the participant', async () => {
     const { POST, supabase } = await loadRoute({
       participant: { id: PARTICIPANT_ID, member_id: MEMBER_ID, user_code: '12345', status: 'active' },

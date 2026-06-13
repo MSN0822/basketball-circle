@@ -308,6 +308,7 @@ async function cleanupCreatedData() {
 
 let adminCookie = null
 let mainEvent
+let draftEvent
 let capacityEvent
 let concurrencyEvent
 let deadlineEvent
@@ -392,8 +393,13 @@ await record('F-06', 'Admin updates event title and capacity fields', async () =
 })
 
 await record('F-07', 'Admin creates draft event that remains traceable', async () => {
-  const draft = await createEvent('DRAFT', { status: 'draft', max_participants: 3, threshold: 2 })
-  return { eventId: draft.id, status: draft.status, passed: draft.status === 'draft' }
+  draftEvent = await createEvent('DRAFT', {
+    status: 'draft',
+    publishes_at: new Date(Date.now() - 60 * 1000).toISOString(),
+    max_participants: 3,
+    threshold: 2,
+  })
+  return { eventId: draftEvent.id, status: draftEvent.status, publishes_at: draftEvent.publishes_at, passed: draftEvent.status === 'draft' }
 })
 
 await record('A-04', 'Create QA auth users and member records', async () => {
@@ -407,6 +413,29 @@ await record('A-04', 'Create QA auth users and member records', async () => {
       { id: memberC.member.id, name: memberC.member.name, email: memberC.email, hasSession: Boolean(memberC.accessToken) },
     ],
     passed: Boolean(memberA.member.id && memberB.member.id && memberC.member.id),
+  }
+})
+
+await record('A-05', 'Authenticated member read surfaces hide due draft event', async () => {
+  const authHeaders = { Authorization: `Bearer ${memberA.accessToken}` }
+  const eventsRes = await supabaseRest('events', `?id=eq.${draftEvent.id}&select=id,title,status,publishes_at`, {
+    headers: authHeaders,
+  })
+  const participantsRes = await supabaseRest('participants_public', `?event_id=eq.${draftEvent.id}&select=id,event_id,name,status`, {
+    headers: authHeaders,
+  })
+  return {
+    eventsStatus: eventsRes.status,
+    eventRows: Array.isArray(eventsRes.body) ? eventsRes.body.length : null,
+    participantsStatus: participantsRes.status,
+    participantRows: Array.isArray(participantsRes.body) ? participantsRes.body.length : null,
+    passed:
+      eventsRes.ok &&
+      participantsRes.ok &&
+      Array.isArray(eventsRes.body) &&
+      eventsRes.body.length === 0 &&
+      Array.isArray(participantsRes.body) &&
+      participantsRes.body.length === 0,
   }
 })
 
