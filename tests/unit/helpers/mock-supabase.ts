@@ -12,6 +12,7 @@ type MockSupabaseConfig = {
   rpcResult?: QueryResult
   insertSingleResult?: QueryResult
   updateSingleResult?: QueryResult
+  updateManyResult?: { error: null | { message: string } }
   deleteEqResult?: { error: null | { message: string } }
 }
 
@@ -22,6 +23,7 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
   const rpcResult = config.rpcResult ?? { data: null, error: null }
   const insertSingleResult = config.insertSingleResult ?? { data: null, error: null }
   const updateSingleResult = config.updateSingleResult ?? { data: null, error: null }
+  const updateManyResult = config.updateManyResult ?? { error: null }
   const deleteEqResult = config.deleteEqResult ?? { error: null }
 
   const selectSingle = vi.fn().mockResolvedValue(selectSingleResult)
@@ -52,9 +54,12 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
   const updateSelect = vi.fn().mockReturnValue({ single: updateSingle })
   const updateQuery = {
     eq: vi.fn(),
+    not: vi.fn(),
+    lte: vi.fn().mockResolvedValue(updateManyResult),
     select: updateSelect,
   }
   updateQuery.eq.mockReturnValue(updateQuery)
+  updateQuery.not.mockReturnValue(updateQuery)
   const update = vi.fn().mockReturnValue(updateQuery)
 
   const deleteEq = vi.fn().mockResolvedValue(deleteEqResult)
@@ -90,6 +95,8 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
       insert,
       update,
       updateEq: updateQuery.eq,
+      updateNot: updateQuery.not,
+      updateLte: updateQuery.lte,
       deleteFn,
       deleteEq,
     },

@@ -97,11 +97,11 @@ describe('POST /api/participants', () => {
     expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
   })
 
-  it('publishes due draft events before calling join_event', async () => {
+  it('promotes due drafts before loading the event and calling join_event', async () => {
     const { POST, supabase } = await loadRoute({
       visibleEvent: {
         id: EVENT_ID,
-        status: 'draft',
+        status: 'accepting',
         publishes_at: '2026-06-07T00:00:00.000Z',
         closes_at: null,
       },
@@ -110,8 +110,7 @@ describe('POST /api/participants', () => {
     const res = await POST(jsonRequest({ event_id: EVENT_ID, name: 'Guest', member_id: MEMBER_ID, guest: true }))
 
     expect(res.status).toBe(200)
-    expect(supabase.spies.update).toHaveBeenCalledWith({ status: 'accepting' })
-    expect(supabase.spies.updateEq).toHaveBeenCalledWith('status', 'draft')
+    expect(supabase.spies.update).toHaveBeenCalledWith({ status: 'accepting', is_manual_close: false })
     expect(supabase.spies.mockRpc).toHaveBeenCalledWith('join_event', expect.objectContaining({
       p_event_id: EVENT_ID,
       p_member_id: MEMBER_ID,

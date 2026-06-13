@@ -3,6 +3,7 @@ import { getServerSupabase } from '@/lib/supabase-server'
 import { getCookieMember } from '@/lib/server-member'
 import { getMyParticipationAndGuests } from '@/lib/participation-query'
 import { isVisibleToMembers, withEffectiveEventStatus } from '@/lib/event-visibility'
+import { publishDueDraftEvents } from '@/lib/event-publishing'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ParticipantList from '@/components/ParticipantList'
@@ -15,6 +16,7 @@ export const revalidate = 0
 
 async function getEvent(id: string): Promise<Event | null> {
   const supabase = getServerSupabase()
+  await publishDueDraftEvents(supabase)
   const { data } = await supabase
     .from('events')
     .select('*')

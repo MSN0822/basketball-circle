@@ -129,10 +129,10 @@ describe('POST /api/cancel', () => {
     expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
   })
 
-  it('allows member cancellation for due draft participants', async () => {
+  it('allows member cancellation after due draft promotion', async () => {
     const { POST, supabase } = await loadRoute({
       participant: { id: PARTICIPANT_ID, member_id: MEMBER_ID, user_code: '12345', status: 'active' },
-      event: { status: 'draft', publishes_at: '2026-06-07T00:00:00.000Z', closes_at: null },
+      event: { status: 'accepting', publishes_at: '2026-06-07T00:00:00.000Z', closes_at: null },
       bearerToken: 'token',
       authMemberId: MEMBER_ID,
     })
@@ -142,6 +142,7 @@ describe('POST /api/cancel', () => {
     }))
 
     expect(res.status).toBe(200)
+    expect(supabase.spies.update).toHaveBeenCalledWith({ status: 'accepting', is_manual_close: false })
     expect(supabase.spies.mockRpc).toHaveBeenCalledWith('cancel_participant', { p_participant_id: PARTICIPANT_ID })
   })
 

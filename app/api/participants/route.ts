@@ -4,6 +4,7 @@ import { getAuthenticatedMember } from '@/lib/api-auth'
 import { getServerSupabase } from '@/lib/supabase-server'
 import { isValidUuid } from '@/lib/validators'
 import { effectiveEventStatus, isVisibleToMembers } from '@/lib/event-visibility'
+import { publishDueDraftEvents } from '@/lib/event-publishing'
 import { getMyParticipationAndGuests, getMyParticipations, toPublicParticipant } from '@/lib/participation-query'
 
 const supabase = getServerSupabase()
@@ -27,6 +28,8 @@ async function getVisibleEvent(
   eventId: string,
   options: { persistEffectiveStatus?: boolean } = {},
 ): Promise<VisibleEvent | null> {
+  await publishDueDraftEvents(supabase)
+
   const { data, error } = await supabase
     .from('events')
     .select('id,status,publishes_at,closes_at')
@@ -63,6 +66,15 @@ export async function GET(req: NextRequest) {
   }
 
   const canonicalMemberId = auth.member.id
+
+  try {
+    await publishDueDraftEvents(supabase)
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : '予約公開の反映に失敗しました' },
+      { status: 500 },
+    )
+  }
 
   if (!eventId) {
     try {

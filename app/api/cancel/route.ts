@@ -4,6 +4,7 @@ import { checkAdmin, getAuthenticatedMember, getBearerToken, safeCompare } from 
 import { getServerSupabase } from '@/lib/supabase-server'
 import { isValidUuid } from '@/lib/validators'
 import { isVisibleToMembers } from '@/lib/event-visibility'
+import { publishDueDraftEvents } from '@/lib/event-publishing'
 
 const supabase = getServerSupabase()
 
@@ -31,6 +32,15 @@ export async function POST(req: NextRequest) {
 
   if (!participant) {
     return NextResponse.json({ error: '参加者が見つかりません' }, { status: 404 })
+  }
+
+  try {
+    await publishDueDraftEvents(supabase)
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : '予約公開の反映に失敗しました' },
+      { status: 500 },
+    )
   }
 
   const { data: event, error: eventError } = await supabase

@@ -3,6 +3,7 @@ import { Event, EventStatus } from '@/lib/supabase'
 import { checkAdmin } from '@/lib/api-auth'
 import { getServerSupabase } from '@/lib/supabase-server'
 import { isValidUuid } from '@/lib/validators'
+import { publishDueDraftEvents } from '@/lib/event-publishing'
 
 const supabase = getServerSupabase()
 const EVENT_STATUSES: EventStatus[] = ['accepting', 'closed', 'draft']
@@ -163,6 +164,12 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   if (!checkAdmin(req)) {
     return jsonError('認証エラー', 403)
+  }
+
+  try {
+    await publishDueDraftEvents(supabase)
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : '予約公開の反映に失敗しました', 500)
   }
 
   const id = req.nextUrl.searchParams.get('id')

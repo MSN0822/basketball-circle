@@ -11,7 +11,7 @@ const env = Object.fromEntries(
     .filter(line => line.trim() && !line.trim().startsWith('#'))
     .map(line => {
       const index = line.indexOf('=')
-      return [line.slice(0, index), line.slice(index + 1)]
+      return [line.slice(0, index), line.slice(index + 1).replace(/^['"]|['"]$/g, '')]
     })
 )
 
@@ -21,8 +21,9 @@ const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_ANON_KEY = env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY
 const ADMIN_PASSWORD = env.ADMIN_PASSWORD
+const CRON_SECRET = env.CRON_SECRET
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !ADMIN_PASSWORD) {
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !ADMIN_PASSWORD || !CRON_SECRET) {
   throw new Error('Required local QA environment values are missing.')
 }
 
@@ -69,6 +70,7 @@ function redact(value) {
   if (value.includes(SUPABASE_ANON_KEY)) return value.replaceAll(SUPABASE_ANON_KEY, '[REDACTED_ANON_KEY]')
   if (value.includes(SUPABASE_SERVICE_ROLE_KEY)) return value.replaceAll(SUPABASE_SERVICE_ROLE_KEY, '[REDACTED_SERVICE_ROLE_KEY]')
   if (value.includes(ADMIN_PASSWORD)) return value.replaceAll(ADMIN_PASSWORD, '[REDACTED_ADMIN_PASSWORD]')
+  if (value.includes(CRON_SECRET)) return value.replaceAll(CRON_SECRET, '[REDACTED_CRON_SECRET]')
   return value
 }
 
@@ -416,7 +418,10 @@ await record('A-04', 'Create QA auth users and member records', async () => {
   }
 })
 
-await record('A-05', 'Authenticated member read surfaces show due draft event', async () => {
+await record('A-05', 'Due draft is promoted before member read surfaces expose it', async () => {
+  const cronRes = await appJson('/api/cron/publish-drafts', {
+    headers: { Authorization: `Bearer ${CRON_SECRET}` },
+  })
   const authHeaders = { Authorization: `Bearer ${memberA.accessToken}` }
   const eventsRes = await supabaseRest('events', `?id=eq.${draftEvent.id}&select=id,title,status,publishes_at`, {
     headers: authHeaders,
@@ -425,16 +430,19 @@ await record('A-05', 'Authenticated member read surfaces show due draft event', 
     headers: authHeaders,
   })
   return {
+    cronStatus: cronRes.status,
+    cronOk: cronRes.body?.ok,
     eventsStatus: eventsRes.status,
     eventRows: Array.isArray(eventsRes.body) ? eventsRes.body.length : null,
     participantsStatus: participantsRes.status,
     participantRows: Array.isArray(participantsRes.body) ? participantsRes.body.length : null,
     passed:
+      cronRes.ok &&
       eventsRes.ok &&
       participantsRes.ok &&
       Array.isArray(eventsRes.body) &&
       eventsRes.body.length === 1 &&
-      eventsRes.body[0]?.status === 'draft' &&
+      eventsRes.body[0]?.status === 'accepting' &&
       Array.isArray(participantsRes.body) &&
       participantsRes.body.length === 0,
   }
