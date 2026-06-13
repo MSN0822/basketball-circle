@@ -10,13 +10,15 @@ function isPast(iso: string | null, nowMs: number): boolean {
   return Boolean(iso && new Date(iso).getTime() <= nowMs)
 }
 
-export function isVisibleToMembers(event: EventVisibilityFields): boolean {
-  return event.status !== 'draft'
+export function isVisibleToMembers(event: EventVisibilityFields, nowMs = Date.now()): boolean {
+  return event.status !== 'draft' || isPast(event.publishes_at, nowMs)
 }
 
 export function effectiveEventStatus(event: EventVisibilityFields, nowMs = Date.now()): EventStatus {
-  if (event.status === 'accepting' && isPast(event.closes_at, nowMs)) return 'closed'
-  return event.status
+  const publishedStatus: EventStatus =
+    event.status === 'draft' && isPast(event.publishes_at, nowMs) ? 'accepting' : event.status
+  if (publishedStatus === 'accepting' && isPast(event.closes_at, nowMs)) return 'closed'
+  return publishedStatus
 }
 
 export function withEffectiveEventStatus<T extends EventVisibilityFields>(event: T, nowMs = Date.now()): T {

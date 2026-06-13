@@ -50,8 +50,12 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
 
   const updateSingle = vi.fn().mockResolvedValue(updateSingleResult)
   const updateSelect = vi.fn().mockReturnValue({ single: updateSingle })
-  const updateEq = vi.fn().mockReturnValue({ select: updateSelect })
-  const update = vi.fn().mockReturnValue({ eq: updateEq })
+  const updateQuery = {
+    eq: vi.fn(),
+    select: updateSelect,
+  }
+  updateQuery.eq.mockReturnValue(updateQuery)
+  const update = vi.fn().mockReturnValue(updateQuery)
 
   const deleteEq = vi.fn().mockResolvedValue(deleteEqResult)
   const deleteFn = vi.fn().mockReturnValue({ eq: deleteEq })
@@ -85,7 +89,7 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
       selectMaybeSingle,
       insert,
       update,
-      updateEq,
+      updateEq: updateQuery.eq,
       deleteFn,
       deleteEq,
     },

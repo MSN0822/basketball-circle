@@ -416,7 +416,7 @@ await record('A-04', 'Create QA auth users and member records', async () => {
   }
 })
 
-await record('A-05', 'Authenticated member read surfaces hide due draft event', async () => {
+await record('A-05', 'Authenticated member read surfaces show due draft event', async () => {
   const authHeaders = { Authorization: `Bearer ${memberA.accessToken}` }
   const eventsRes = await supabaseRest('events', `?id=eq.${draftEvent.id}&select=id,title,status,publishes_at`, {
     headers: authHeaders,
@@ -433,7 +433,8 @@ await record('A-05', 'Authenticated member read surfaces hide due draft event', 
       eventsRes.ok &&
       participantsRes.ok &&
       Array.isArray(eventsRes.body) &&
-      eventsRes.body.length === 0 &&
+      eventsRes.body.length === 1 &&
+      eventsRes.body[0]?.status === 'draft' &&
       Array.isArray(participantsRes.body) &&
       participantsRes.body.length === 0,
   }

@@ -53,7 +53,7 @@ alter table members enable row level security;
 alter table participants enable row level security;
 
 -- 現状のアプリ実装に合わせた公開ポリシー
-create policy "events_select" on events for select to authenticated using (status <> 'draft');
+create policy "events_select" on events for select to authenticated using (status <> 'draft' or publishes_at <= now());
 create policy "events_insert_none" on events for insert with check (false);
 create policy "events_update_none" on events for update using (false) with check (false);
 create policy "events_delete_none" on events for delete using (false);
@@ -85,7 +85,7 @@ select
   end as display_code
 from public.participants p
 join public.events e on e.id = p.event_id
-where e.status <> 'draft';
+where e.status <> 'draft' or e.publishes_at <= now();
 revoke all on public.participants_public from public;
 revoke all on public.participants_public from anon;
 grant select on public.participants_public to authenticated;

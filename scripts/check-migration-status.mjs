@@ -123,7 +123,7 @@ const checks = [
   },
   {
     id: 'Q9',
-    item: 'public read model: members own select + drafts hidden from public surfaces',
+    item: 'public read model: members own select + scheduled draft publish surfaces',
     sql: `
       SELECT
         EXISTS(
@@ -158,7 +158,7 @@ const checks = [
             AND cmd='SELECT'
             AND roles::text = '{authenticated}'
             AND qual LIKE '%draft%'
-            AND qual NOT LIKE '%publishes_at%'
+            AND qual LIKE '%publishes_at%'
         )
         AND EXISTS(
           SELECT 1
@@ -167,7 +167,7 @@ const checks = [
           WHERE n.nspname='public'
             AND c.relname='participants_public'
             AND pg_get_viewdef(c.oid) LIKE '%draft%'
-            AND pg_get_viewdef(c.oid) NOT LIKE '%publishes_at%'
+            AND pg_get_viewdef(c.oid) LIKE '%publishes_at%'
         )
         AND NOT EXISTS(
           SELECT 1
