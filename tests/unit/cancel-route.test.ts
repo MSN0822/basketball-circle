@@ -15,7 +15,7 @@ type ParticipantInput = {
 
 async function loadRoute(options: {
   participant?: ParticipantInput | null
-  event?: { status: 'accepting' | 'closed' | 'draft'; publishes_at: string | null; closes_at: string | null } | null
+  event?: { status: 'accepting' | 'closed' | 'draft'; publishes_at: string | null } | null
   bearerToken?: string | null
   authMemberId?: string | null
   authStatus?: number
@@ -31,7 +31,7 @@ async function loadRoute(options: {
   const supabase = mockSupabaseFrom({
     selectSingleResult: { data: participant, error: null },
     selectMaybeSingleResult: {
-      data: options.event === undefined ? { status: 'accepting', publishes_at: null, closes_at: null } : options.event,
+      data: options.event === undefined ? { status: 'accepting', publishes_at: null } : options.event,
       error: null,
     },
     rpcResult: options.rpcResult ?? { data: null, error: null },
@@ -116,7 +116,7 @@ describe('POST /api/cancel', () => {
   it('rejects member cancellation for draft participants', async () => {
     const { POST, supabase } = await loadRoute({
       participant: { id: PARTICIPANT_ID, member_id: MEMBER_ID, user_code: '12345', status: 'active' },
-      event: { status: 'draft', publishes_at: null, closes_at: null },
+      event: { status: 'draft', publishes_at: null },
       bearerToken: 'token',
       authMemberId: MEMBER_ID,
     })
@@ -132,7 +132,7 @@ describe('POST /api/cancel', () => {
   it('allows member cancellation after due draft promotion', async () => {
     const { POST, supabase } = await loadRoute({
       participant: { id: PARTICIPANT_ID, member_id: MEMBER_ID, user_code: '12345', status: 'active' },
-      event: { status: 'accepting', publishes_at: '2026-06-07T00:00:00.000Z', closes_at: null },
+      event: { status: 'accepting', publishes_at: '2026-06-07T00:00:00.000Z' },
       bearerToken: 'token',
       authMemberId: MEMBER_ID,
     })

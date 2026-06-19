@@ -74,8 +74,7 @@ export default function EventList({ events, initialMyParticipations }: Props) {
       .order('event_date', { ascending: true })
 
     if (data) {
-      const nowMs = Date.now()
-      setRealtimeEvents(data.filter(event => isVisibleToMembers(event)).map(event => withEffectiveEventStatus(event, nowMs)))
+      setRealtimeEvents(data.filter(event => isVisibleToMembers(event)).map(event => withEffectiveEventStatus(event)))
     }
   }, [])
 

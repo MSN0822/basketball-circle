@@ -11,7 +11,6 @@ const supabase = getServerSupabase()
 type EventAccess = {
   status: 'accepting' | 'closed' | 'draft' | 'archived'
   publishes_at: string | null
-  closes_at: string | null
 }
 
 export async function POST(req: NextRequest) {
@@ -45,7 +44,7 @@ export async function POST(req: NextRequest) {
 
   const { data: event, error: eventError } = await supabase
     .from('events')
-    .select('status,publishes_at,closes_at')
+    .select('status,publishes_at')
     .eq('id', participant.event_id)
     .maybeSingle<EventAccess>()
 

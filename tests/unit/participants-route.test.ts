@@ -9,7 +9,7 @@ const OTHER_MEMBER_ID = '33333333-3333-4333-8333-333333333333'
 async function loadRoute(options: {
   authMemberId?: string | null
   authStatus?: number
-  visibleEvent?: { id: string; status: 'accepting' | 'closed' | 'draft'; publishes_at: string | null; closes_at: string | null } | null
+  visibleEvent?: { id: string; status: 'accepting' | 'closed' | 'draft'; publishes_at: string | null } | null
   selectOrderResult?: { data: unknown; error: null | { message: string; code?: string } }
   rpcResult?: { data: unknown; error: null | { message: string; code?: string } }
 } = {}) {
@@ -18,7 +18,7 @@ async function loadRoute(options: {
   const supabase = mockSupabaseFrom({
     selectMaybeSingleResult: {
       data: options.visibleEvent === undefined
-        ? { id: EVENT_ID, status: 'accepting', publishes_at: null, closes_at: null }
+        ? { id: EVENT_ID, status: 'accepting', publishes_at: null }
         : options.visibleEvent,
       error: null,
     },
@@ -136,7 +136,6 @@ describe('POST /api/participants', () => {
         id: EVENT_ID,
         status: 'accepting',
         publishes_at: '2026-06-07T00:00:00.000Z',
-        closes_at: null,
       },
     })
 

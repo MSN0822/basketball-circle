@@ -10,7 +10,6 @@ export interface Event {
   event_end_date: string | null
   location: string
   location_url: string | null
-  closes_at: string | null
   publishes_at: string | null
   max_participants: number
   threshold: number

@@ -18,10 +18,9 @@ async function getEvents(): Promise<Event[]> {
     .order('event_date', { ascending: true })
   const events = data ?? []
 
-  const nowMs = Date.now()
   return events
     .filter(e => isVisibleToMembers(e))
-    .map(e => withEffectiveEventStatus(e, nowMs))
+    .map(e => withEffectiveEventStatus(e))
 }
 
 // このページはログインユーザごとに個人化したレスポンスを返す（revalidate=0 前提）。

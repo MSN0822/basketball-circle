@@ -59,10 +59,6 @@ function daysFromNow(days, hourJst, minuteJst) {
   return jstDateAtOffset(days, hourJst, minuteJst)
 }
 
-function daysAgo(days, hourJst, minuteJst) {
-  return jstDateAtOffset(-days, hourJst, minuteJst)
-}
-
 async function listEvents() {
   const { data, error } = await supabase
     .from('events')
@@ -154,19 +150,19 @@ const demoEvents = [
     ],
   },
   {
-    title: '【運営確認用】締切日時超過デモ',
+    title: '【運営確認用】手動締切デモ',
     event_date: daysFromNow(24, 19, 0),
     event_end_date: daysFromNow(24, 21, 0),
     location: '東区体育館',
     location_url: 'https://www.google.com/maps/search/?api=1&query=%E6%9D%B1%E5%8C%BA%E4%BD%93%E8%82%B2%E9%A4%A8',
-    closes_at: daysAgo(1, 23, 59),
+    closes_at: null,
     publishes_at: null,
     max_participants: 35,
     threshold: 30,
     status: 'closed',
     participants: [
-      { name: '小林 亮', user_code: 'demo-deadline-001', status: 'active', slot_number: 1 },
-      { name: '加藤 真由', user_code: 'demo-deadline-002', status: 'active', slot_number: 2 },
+      { name: '小林 亮', user_code: 'demo-manual-close-001', status: 'active', slot_number: 1 },
+      { name: '加藤 真由', user_code: 'demo-manual-close-002', status: 'active', slot_number: 2 },
     ],
   },
   {

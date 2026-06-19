@@ -13,7 +13,6 @@ const baseEvent = {
   event_end_date: END,
   location: 'Gym',
   location_url: null,
-  closes_at: null,
   publishes_at: null,
   max_participants: 35,
   threshold: 30,

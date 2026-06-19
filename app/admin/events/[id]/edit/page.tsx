@@ -69,7 +69,6 @@ export default function AdminEditPage() {
   const [eventEndDate, setEventEndDate] = useState('')
   const [location, setLocation] = useState('')
   const [locationUrl, setLocationUrl] = useState('')
-  const [closesAt, setClosesAt] = useState('')
   const [publishesAt, setPublishesAt] = useState('')
   const [maxParticipants, setMaxParticipants] = useState('35')
   const [threshold, setThreshold] = useState('30')
@@ -95,7 +94,6 @@ export default function AdminEditPage() {
         setEventEndDate(toLocalDatetime(data.event_end_date ?? null))
         setLocation(data.location)
         setLocationUrl(data.location_url ?? '')
-        setClosesAt(toLocalDatetime(data.closes_at))
         setPublishesAt(toLocalDatetime(data.publishes_at))
         setMaxParticipants(String(data.max_participants))
         setThreshold(String(data.threshold))
@@ -132,7 +130,6 @@ export default function AdminEditPage() {
         event_end_date: eventEndIso,
         location,
         location_url: locationUrl || null,
-        closes_at: closesAt ? new Date(closesAt + '+09:00').toISOString() : null,
         publishes_at: publishesAt ? new Date(publishesAt + '+09:00').toISOString() : null,
         max_participants: parseInt(maxParticipants),
         threshold: parseInt(threshold),
@@ -192,10 +189,6 @@ export default function AdminEditPage() {
           <div className="space-y-1.5">
             <Label>予約公開日時 <span className="text-muted-foreground text-xs">（任意・下書き保存時のみ有効）</span></Label>
             <DateTimePicker value={publishesAt} onChange={setPublishesAt} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>自動締め切り日時 <span className="text-muted-foreground text-xs">（任意）</span></Label>
-            <DateTimePicker value={closesAt} onChange={setClosesAt} />
           </div>
           <div className="flex gap-3">
             <div className="flex-1 space-y-1.5">

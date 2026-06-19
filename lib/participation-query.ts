@@ -6,7 +6,6 @@ type VisibleEventFields = {
   id: string
   status: 'accepting' | 'closed' | 'draft' | 'archived'
   publishes_at: string | null
-  closes_at: string | null
 }
 
 type ParticipantWithEvent = Participant & {
@@ -39,7 +38,7 @@ export async function getMyParticipations(
 ): Promise<PublicParticipant[]> {
   const { data, error } = await supabase
     .from('participants')
-    .select('*, events!inner(id,status,publishes_at,closes_at)')
+    .select('*, events!inner(id,status,publishes_at)')
     .eq('member_id', memberId)
     .neq('status', 'cancelled')
     .order('created_at', { ascending: true })

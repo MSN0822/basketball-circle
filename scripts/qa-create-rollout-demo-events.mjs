@@ -71,10 +71,6 @@ function daysFromNow(days, hourJst, minuteJst = 0) {
   return jstDateAtOffset(days, hourJst, minuteJst)
 }
 
-function daysAgo(days, hourJst, minuteJst = 0) {
-  return jstDateAtOffset(-days, hourJst, minuteJst)
-}
-
 function demoParticipants(prefix, count, label) {
   return Array.from({ length: count }, (_, index) => ({
     name: `${label} ${String(index + 1).padStart(2, '0')}`,
@@ -197,17 +193,17 @@ const rolloutEvents = [
     participants: demoParticipants('rollout-threshold', 30, '閾値デモ'),
   },
   {
-    title: '【運営展開用】締切日時超過デモ',
+    title: '【運営展開用】手動締切デモ',
     event_date: daysFromNow(31, 19),
     event_end_date: daysFromNow(31, 21),
     location: '西区体育館',
     location_url: 'https://www.google.com/maps/search/?api=1&query=%E8%A5%BF%E5%8C%BA%E4%BD%93%E8%82%B2%E9%A4%A8',
-    closes_at: daysAgo(1, 23, 59),
+    closes_at: null,
     publishes_at: null,
     max_participants: 35,
     threshold: 30,
     status: 'closed',
-    participants: demoParticipants('rollout-deadline', 2, '締切デモ'),
+    participants: demoParticipants('rollout-manual-close', 2, '手動締切デモ'),
   },
   {
     title: '【運営展開用】下書き固定デモ',

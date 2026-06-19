@@ -5,8 +5,7 @@
  *   T1. 管理者が手動締切 → is_manual_close = true になる
  *   T2. 管理者が手動で再開 → is_manual_close = false にリセットされる
  *   T3. 手動締切後にキャンセルで閾値未満 → イベントは締切のまま（自動再開しない）
- *   T4. 自動締切（closes_at 超過）後にキャンセルで閾値未満 → 自動再開する
- *   T5. 定員到達による締切後にキャンセルで閾値未満 → 自動再開する（既存仕様・回帰）
+ *   T4. 定員到達による締切後にキャンセルで閾値未満 → 自動再開する（既存仕様・回帰）
  */
 
 import { readFileSync } from 'fs'
@@ -198,35 +197,8 @@ async function testT3_manualCloseNoAutoReopen() {
   }
 }
 
-async function testT4_deadlineCloseAutoReopen() {
-  console.log('\nT4: 日時超過による締切後のキャンセルで閾値未満 → 自動再開する')
-  const event = await createTestEvent({ status: 'accepting' })
-  try {
-    const pastClosesAt = new Date(Date.now() - 60 * 1000).toISOString()
-    // 締切日時超過シミュレーション: closed + closes_at=過去 + is_manual_close=false
-    await dbAdmin.from('events').update({
-      status: 'closed',
-      closes_at: pastClosesAt,
-      is_manual_close: false,
-    }).eq('id', event.id)
-
-    // threshold=3, 参加者3人
-    const participants = await seedParticipants(event.id, 3)
-
-    // 1人キャンセル → 残2人（閾値3未満）→ 自動再開するはず
-    const result = await cancelParticipant(participants[0].id)
-    ok('キャンセル自体は成功', result.success === true, JSON.stringify(result))
-
-    const updated = await getEvent(event.id)
-    ok('日時超過締切後は閾値未満で自動再開する（accepting）', updated.status === 'accepting', `status=${updated.status}`)
-    ok('closes_at がクリアされる（null）', updated.closes_at === null, `closes_at=${updated.closes_at}`)
-  } finally {
-    await deleteEvent(event.id)
-  }
-}
-
-async function testT5_capacityCloseAutoReopen() {
-  console.log('\nT5: 定員到達による締切後のキャンセルで閾値未満 → 自動再開する（回帰）')
+async function testT4_capacityCloseAutoReopen() {
+  console.log('\nT4: 定員到達による締切後のキャンセルで閾値未満 → 自動再開する（回帰）')
   // max=5, threshold=3, is_manual_close=false
   const event = await createTestEvent({ max_participants: 5, threshold: 3 })
   try {
@@ -261,8 +233,7 @@ try {
   await testT1_manualCloseFlag()
   await testT2_manualReopenResetsFlag()
   await testT3_manualCloseNoAutoReopen()
-  await testT4_deadlineCloseAutoReopen()
-  await testT5_capacityCloseAutoReopen()
+  await testT4_capacityCloseAutoReopen()
 } catch (e) {
   console.error('\n予期しないエラー:', e)
 }

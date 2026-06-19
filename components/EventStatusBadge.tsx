@@ -31,7 +31,6 @@ type ParticipantsChangedDetail = {
 export default function EventStatusBadge({ event, initialActiveCount }: Props) {
   const [currentEvent, setCurrentEvent] = useState(event)
   const [activeCount, setActiveCount] = useState(initialActiveCount)
-  const [now, setNow] = useState(0)
 
   const reload = useCallback(async () => {
     const [{ data: nextEvent }, participantsRes] = await Promise.all([
@@ -99,19 +98,8 @@ export default function EventStatusBadge({ event, initialActiveCount }: Props) {
     return () => { window.removeEventListener('participants-changed', handleParticipantsChanged) }
   }, [event.id, reload])
 
-  useEffect(() => {
-    function updateNow() {
-      setNow(Date.now())
-    }
-
-    updateNow()
-    const interval = window.setInterval(updateNow, 60_000)
-    return () => { window.clearInterval(interval) }
-  }, [])
-
   const isFull = activeCount >= currentEvent.max_participants
-  const isPastDeadline = Boolean(now && currentEvent.closes_at && new Date(currentEvent.closes_at).getTime() <= now)
-  const isClosed = currentEvent.status !== 'accepting' || isFull || isPastDeadline
+  const isClosed = currentEvent.status !== 'accepting' || isFull
 
   return (
     <Badge variant={isClosed ? 'secondary' : 'default'}>

@@ -21,18 +21,14 @@ type VisibleEvent = {
   id: string
   status: 'accepting' | 'closed' | 'draft' | 'archived'
   publishes_at: string | null
-  closes_at: string | null
 }
 
-async function getVisibleEvent(
-  eventId: string,
-  options: { persistEffectiveStatus?: boolean } = {},
-): Promise<VisibleEvent | null> {
+async function getVisibleEvent(eventId: string): Promise<VisibleEvent | null> {
   await publishDueDraftEvents(supabase)
 
   const { data, error } = await supabase
     .from('events')
-    .select('id,status,publishes_at,closes_at')
+    .select('id,status,publishes_at')
     .eq('id', eventId)
     .maybeSingle<VisibleEvent>()
 
@@ -40,16 +36,6 @@ async function getVisibleEvent(
   if (!data || !isVisibleToMembers(data)) return null
 
   const nextStatus = effectiveEventStatus(data)
-  if (options.persistEffectiveStatus && nextStatus !== data.status) {
-    const { error: updateError } = await supabase
-      .from('events')
-      .update({ status: nextStatus })
-      .eq('id', eventId)
-      .eq('status', data.status)
-    if (updateError) throw updateError
-    return { ...data, status: nextStatus }
-  }
-
   return { ...data, status: nextStatus }
 }
 
@@ -164,7 +150,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const visibleEvent = await getVisibleEvent(event_id, { persistEffectiveStatus: true })
+    const visibleEvent = await getVisibleEvent(event_id)
     if (!visibleEvent) {
       return NextResponse.json({ error: 'イベントが見つかりません' }, { status: 404 })
     }

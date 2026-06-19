@@ -43,10 +43,6 @@ function daysFromNow(days, hourJst, minuteJst = 0) {
   return jstDateAtOffset(days, hourJst, minuteJst)
 }
 
-function daysAgo(days, hourJst, minuteJst = 0) {
-  return jstDateAtOffset(-days, hourJst, minuteJst)
-}
-
 // ------- デモイベント定義 -------
 const DEMO_EVENTS = [
   {
@@ -89,7 +85,7 @@ const DEMO_EVENTS = [
     publishes_at: null,
   },
   {
-    title: '【運営展開用】締切日時超過デモ',
+    title: '【運営展開用】手動締切デモ',
     event_date: daysFromNow(31, 19),
     event_end_date: daysFromNow(31, 21),
     location: '西区体育館',
@@ -98,7 +94,7 @@ const DEMO_EVENTS = [
     threshold: 30,
     status: 'closed',
     is_manual_close: false,
-    closes_at: daysAgo(1, 23, 59),
+    closes_at: null,
     publishes_at: null,
   },
   {
@@ -218,7 +214,7 @@ async function main() {
       // 閾値30名・再開待ちデモ: 30名 active（閾値=上限に到達）
       participantCount = await insertParticipants(data.id, ALL_NAMES.slice(0, 30))
     } else if (index === 3) {
-      // 締切日時超過デモ: 20名 active
+      // 手動締切デモ: 20名 active
       participantCount = await insertParticipants(data.id, ALL_NAMES.slice(0, 20))
     }
     // index === 4: 下書きデモは参加者なし

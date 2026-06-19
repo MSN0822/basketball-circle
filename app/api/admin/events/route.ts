@@ -86,7 +86,6 @@ export async function POST(req: NextRequest) {
     event_end_date,
     location,
     location_url = null,
-    closes_at = null,
     publishes_at = null,
     max_participants = 35,
     threshold = 30,
@@ -125,9 +124,6 @@ export async function POST(req: NextRequest) {
     return jsonError('event_end_date は event_date より後にしてください')
   }
 
-  const parsedClosesAt = parseNullableDate(closes_at, 'closes_at')
-  if (typeof parsedClosesAt === 'object' && parsedClosesAt?.error) return jsonError(parsedClosesAt.error)
-
   const parsedPublishesAt = parseNullableDate(publishes_at, 'publishes_at')
   if (typeof parsedPublishesAt === 'object' && parsedPublishesAt?.error) return jsonError(parsedPublishesAt.error)
 
@@ -148,7 +144,6 @@ export async function POST(req: NextRequest) {
       event_end_date: parsedEnd,
       location: trimmedLocation,
       location_url: parsedLocationUrl,
-      closes_at: parsedClosesAt,
       publishes_at: parsedPublishesAt,
       max_participants: parsedMaxParticipants,
       threshold: parsedThreshold,
@@ -260,7 +255,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { id, status, title, event_date, event_end_date, location, location_url, closes_at, publishes_at, max_participants, threshold } = body
+  const { id, status, title, event_date, event_end_date, location, location_url, publishes_at, max_participants, threshold } = body
   const trimmedPatchTitle = typeof title === 'string' ? title.trim() : title
   const trimmedPatchLocation = typeof location === 'string' ? location.trim() : location
 
@@ -344,11 +339,6 @@ export async function PATCH(req: NextRequest) {
   if (event_end_date !== undefined) patch.event_end_date = nextEnd
   if (location !== undefined) patch.location = trimmedPatchLocation
   if (location_url !== undefined) patch.location_url = parsedLocationUrl
-  if (closes_at !== undefined) {
-    const parsed = parseNullableDate(closes_at, 'closes_at')
-    if (typeof parsed === 'object' && parsed?.error) return jsonError(parsed.error)
-    patch.closes_at = parsed
-  }
   if (publishes_at !== undefined) {
     const parsed = parseNullableDate(publishes_at, 'publishes_at')
     if (typeof parsed === 'object' && parsed?.error) return jsonError(parsed.error)

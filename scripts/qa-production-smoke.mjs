@@ -331,7 +331,6 @@ let mainEvent
 let draftEvent
 let capacityEvent
 let concurrencyEvent
-let deadlineEvent
 let memberA
 let memberB
 let memberC
@@ -644,45 +643,21 @@ await record('E-06', 'Concurrent duplicate member joins do not create duplicate 
   }
 })
 
-await record('E-07', 'Past close datetime closes event and rejects additional joins', async () => {
-  deadlineEvent = await createEvent('DEADLINE', {
+await record('E-07', 'Legacy close datetime no longer rejects joins', async () => {
+  const legacyDeadlineEvent = await createEvent('LEGACY_DEADLINE', {
     max_participants: 5,
     threshold: 5,
     closes_at: new Date(Date.now() - 60 * 1000).toISOString(),
     status: 'accepting',
   })
-  const res = await join(deadlineEvent.id, memberC.member.name, memberC.member.id, false, memberC.accessToken)
-  const event = await getEvent(deadlineEvent.id)
-  const participants = await getParticipants(deadlineEvent.id)
+  const res = await join(legacyDeadlineEvent.id, memberC.member.name, memberC.member.id, false, memberC.accessToken)
+  const event = await getEvent(legacyDeadlineEvent.id)
+  const participants = await getParticipants(legacyDeadlineEvent.id)
   return {
     joinStatus: res.status,
     eventStatus: event?.status,
     participantStatuses: participants.map(p => ({ name: p.name, status: p.status, slot: p.slot_number })),
-    passed: res.status === 409 && event?.status === 'closed' && participants.filter(p => p.status !== 'cancelled').length === 0,
-  }
-})
-
-await record('E-08', 'Past close datetime prevents reopen after cancellation below threshold', async () => {
-  const reopenEvent = await createEvent('DEADLINE_REOPEN', { max_participants: 5, threshold: 5 })
-  const joined = await join(reopenEvent.id, memberC.member.name, memberC.member.id, false, memberC.accessToken)
-  const participant = joined.body?.participant
-  await appJson('/api/admin/events', {
-    method: 'PATCH',
-    headers: { Cookie: adminCookie },
-    body: JSON.stringify({
-      id: reopenEvent.id,
-      status: 'closed',
-      closes_at: new Date(Date.now() - 60 * 1000).toISOString(),
-    }),
-  })
-  const cancelled = await cancel(participant.id, memberC.member.id, null, false, memberC.accessToken)
-  const event = await getEvent(reopenEvent.id)
-  const participants = await getParticipants(reopenEvent.id)
-  return {
-    cancelStatus: cancelled.status,
-    eventStatus: event?.status,
-    participantStatuses: participants.map(p => ({ name: p.name, status: p.status, slot: p.slot_number })),
-    passed: joined.ok && cancelled.ok && event?.status === 'closed' && participants.filter(p => p.status === 'active').length === 0,
+    passed: res.ok && event?.status === 'accepting' && participants.filter(p => p.status === 'active').length === 1,
   }
 })
 
