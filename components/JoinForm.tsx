@@ -101,13 +101,13 @@ export default function JoinForm({ event, initialMember, initialParticipation, i
   }, [event.id])
 
   const loadActiveCount = useCallback(async () => {
-    const { count } = await supabase
-      .from('participants_public')
-      .select('id', { count: 'exact', head: true })
-      .eq('event_id', event.id)
-      .eq('status', 'active')
+    const res = await fetch(`/api/participants?event_id=${encodeURIComponent(event.id)}`, {
+      headers: await getJsonAuthHeaders(),
+    })
+    if (!res.ok) return
 
-    setActiveCount(count ?? 0)
+    const data = await res.json().catch(() => ({})) as { participants?: PublicParticipant[] }
+    setActiveCount((data.participants ?? []).filter(participant => participant.status === 'active').length)
   }, [event.id])
 
   const reloadMine = useCallback(async (memberId: string) => {

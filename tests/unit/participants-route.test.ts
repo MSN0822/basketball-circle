@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { jsonRequest, responseJson } from './helpers/route'
+import { emptyRequest, jsonRequest, responseJson } from './helpers/route'
 import { mockSupabaseFrom } from './helpers/mock-supabase'
 
 const EVENT_ID = '11111111-1111-4111-8111-111111111111'
@@ -10,6 +10,7 @@ async function loadRoute(options: {
   authMemberId?: string | null
   authStatus?: number
   visibleEvent?: { id: string; status: 'accepting' | 'closed' | 'draft'; publishes_at: string | null; closes_at: string | null } | null
+  selectOrderResult?: { data: unknown; error: null | { message: string; code?: string } }
   rpcResult?: { data: unknown; error: null | { message: string; code?: string } }
 } = {}) {
   vi.resetModules()
@@ -21,6 +22,7 @@ async function loadRoute(options: {
         : options.visibleEvent,
       error: null,
     },
+    selectOrderResult: options.selectOrderResult,
     rpcResult: options.rpcResult ?? {
       data: {
         participant: {
@@ -47,11 +49,42 @@ async function loadRoute(options: {
   vi.doMock('@/lib/api-auth', () => ({ getAuthenticatedMember }))
 
   const route = await import('@/app/api/participants/route')
-  return { POST: route.POST, supabase, mocks: { getAuthenticatedMember } }
+  return { GET: route.GET, POST: route.POST, supabase, mocks: { getAuthenticatedMember } }
 }
 
 beforeEach(() => {
   vi.restoreAllMocks()
+})
+
+describe('GET /api/participants', () => {
+  it('returns the public participant list through the server-side view access', async () => {
+    const participant = {
+      id: '44444444-4444-4444-8444-444444444444',
+      event_id: EVENT_ID,
+      name: 'Member A',
+      status: 'active',
+      slot_number: 1,
+      created_at: '2026-06-19T00:00:00.000Z',
+      display_code: null,
+    }
+    const { GET, mocks } = await loadRoute({
+      selectOrderResult: { data: [participant], error: null },
+    })
+
+    const req = emptyRequest({
+      url: `https://example.test/api/participants?event_id=${EVENT_ID}`,
+      method: 'GET',
+    })
+    Object.defineProperty(req, 'nextUrl', {
+      value: new URL(`https://example.test/api/participants?event_id=${EVENT_ID}`),
+    })
+    const res = await GET(req)
+    const body = await responseJson<{ participants?: unknown[] }>(res)
+
+    expect(res.status).toBe(200)
+    expect(mocks.getAuthenticatedMember).toHaveBeenCalledWith(expect.any(Request), null)
+    expect(body.participants).toEqual([participant])
+  })
 })
 
 describe('POST /api/participants', () => {

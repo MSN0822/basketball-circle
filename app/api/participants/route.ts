@@ -60,6 +60,35 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'event_id の形式が正しくありません' }, { status: 400 })
   }
 
+  if (eventId && !requestedMemberId) {
+    const auth = await getAuthenticatedMember(req, null)
+    if (!auth.member) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
+    try {
+      const visibleEvent = await getVisibleEvent(eventId)
+      if (!visibleEvent) {
+        return NextResponse.json({ error: 'イベントが見つかりません' }, { status: 404 })
+      }
+
+      const { data, error } = await supabase
+        .from('participants_public')
+        .select('id,event_id,name,status,slot_number,created_at,display_code')
+        .eq('event_id', eventId)
+        .neq('status', 'cancelled')
+        .order('slot_number', { ascending: true })
+
+      if (error) throw error
+      return NextResponse.json({ participants: data ?? [] })
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : '参加者情報の取得に失敗しました' },
+        { status: 500 },
+      )
+    }
+  }
+
   const auth = await getAuthenticatedMember(req, requestedMemberId)
   if (!auth.member) {
     return NextResponse.json({ error: auth.error }, { status: auth.status })

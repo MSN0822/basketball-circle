@@ -73,14 +73,13 @@ export default function ParticipantList({ event, initialParticipants, initialMem
   }, [initialMember, reloadMine])
 
   const reloadParticipants = useCallback(async () => {
-    const { data } = await supabase
-      .from('participants_public')
-      .select('id,event_id,name,status,slot_number,created_at,display_code')
-      .eq('event_id', event.id)
-      .neq('status', 'cancelled')
-      .order('slot_number', { ascending: true })
+    const res = await fetch(`/api/participants?event_id=${encodeURIComponent(event.id)}`, {
+      headers: await getJsonAuthHeaders(),
+    })
+    if (!res.ok) return
 
-    if (data) setParticipants(data as PublicParticipant[])
+    const data = await res.json().catch(() => ({})) as { participants?: PublicParticipant[] }
+    setParticipants(data.participants ?? [])
   }, [event.id])
 
   const reloadEvent = useCallback(async () => {

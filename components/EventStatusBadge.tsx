@@ -8,6 +8,16 @@ import { withEffectiveEventStatus } from '@/lib/event-visibility'
 
 const supabase = getSupabase()
 
+async function getJsonAuthHeaders() {
+  const { data } = await supabase.auth.getSession()
+  return {
+    'Content-Type': 'application/json',
+    ...(data.session?.access_token
+      ? { Authorization: `Bearer ${data.session.access_token}` }
+      : {}),
+  }
+}
+
 type Props = {
   event: Event
   initialActiveCount: number
@@ -19,21 +29,22 @@ export default function EventStatusBadge({ event, initialActiveCount }: Props) {
   const [now, setNow] = useState(0)
 
   const reload = useCallback(async () => {
-    const [{ data: nextEvent }, { count }] = await Promise.all([
+    const [{ data: nextEvent }, participantsRes] = await Promise.all([
       supabase
         .from('events')
         .select('*')
         .eq('id', event.id)
         .single<Event>(),
-      supabase
-        .from('participants_public')
-        .select('id', { count: 'exact', head: true })
-        .eq('event_id', event.id)
-        .eq('status', 'active'),
+      fetch(`/api/participants?event_id=${encodeURIComponent(event.id)}`, {
+        headers: await getJsonAuthHeaders(),
+      }),
     ])
 
     if (nextEvent) setCurrentEvent(withEffectiveEventStatus(nextEvent))
-    setActiveCount(count ?? 0)
+    if (participantsRes.ok) {
+      const data = await participantsRes.json().catch(() => ({})) as { participants?: { status?: string }[] }
+      setActiveCount((data.participants ?? []).filter(participant => participant.status === 'active').length)
+    }
   }, [event.id])
 
   useEffect(() => {
