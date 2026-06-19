@@ -57,10 +57,12 @@ export default function LoginPage() {
   const [verificationCode, setVerificationCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
 
   function switchMode(next: 'login' | 'register') {
     setMode(next)
     setError('')
+    setNotice('')
     setVerificationCode('')
     setPendingRegistration(null)
   }
@@ -68,6 +70,7 @@ export default function LoginPage() {
   async function handleLogin() {
     setLoading(true)
     setError('')
+    setNotice('')
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
     if (error) {
@@ -106,6 +109,7 @@ export default function LoginPage() {
 
     setLoading(true)
     setError('')
+    setNotice('')
 
     const normalizedEmail = email.trim()
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -138,7 +142,9 @@ export default function LoginPage() {
     setLoading(false)
     setPendingRegistration({ email: normalizedEmail, displayName })
     setVerificationCode('')
-    setMode('verify')
+    setNotice(
+      '確認コードを送信しました。メールが届いたら「コード入力へ進む」から登録を完了してください。届かない場合は、1時間ほど空けてからもう一度送信してください。',
+    )
   }
 
   async function handleVerifyCode() {
@@ -284,6 +290,22 @@ export default function LoginPage() {
           )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
+          {notice && <p className="text-sm text-muted-foreground">{notice}</p>}
+
+          {mode === 'register' && pendingRegistration && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setError('')
+                setNotice('')
+                setMode('verify')
+              }}
+              className="w-full"
+            >
+              コード入力へ進む
+            </Button>
+          )}
 
           <Button
             onClick={mode === 'login' ? handleLogin : mode === 'register' ? handleRegister : handleVerifyCode}
