@@ -25,6 +25,22 @@ interface Props {
   initialMyParticipantIds: string[]
 }
 
+type ParticipantsChangedDetail = {
+  eventId?: string
+  action?: 'upsert' | 'remove'
+  participant?: PublicParticipant
+  participantId?: string
+}
+
+function sortParticipants(rows: PublicParticipant[]) {
+  return [...rows].sort((a, b) => {
+    const slotA = a.slot_number ?? Number.MAX_SAFE_INTEGER
+    const slotB = b.slot_number ?? Number.MAX_SAFE_INTEGER
+    if (slotA !== slotB) return slotA - slotB
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  })
+}
+
 export default function ParticipantList({ event, initialParticipants, initialMember, initialMyParticipantIds }: Props) {
   const [participants, setParticipants] = useState<PublicParticipant[]>(initialParticipants)
   const [currentEvent, setCurrentEvent] = useState<Event>(event)
@@ -136,12 +152,35 @@ export default function ParticipantList({ event, initialParticipants, initialMem
 
   useEffect(() => {
     function handleParticipantsChanged(browserEvent: globalThis.Event) {
-      const detail = (browserEvent as CustomEvent<{ eventId?: string }>).detail
-      if (!detail?.eventId || detail.eventId === event.id) {
-        reloadParticipants()
-        reloadEvent()
-        if (member) reloadMine(member.id)
+      const detail = (browserEvent as CustomEvent<ParticipantsChangedDetail>).detail
+      if (detail?.eventId && detail.eventId !== event.id) return
+
+      if (detail?.action === 'upsert' && detail.participant) {
+        const nextParticipant = detail.participant
+        setParticipants(current => sortParticipants([
+          ...current.filter(participant => participant.id !== nextParticipant.id),
+          nextParticipant,
+        ]))
+        if (member) {
+          setMyParticipantIds(current => new Set([...current, nextParticipant.id]))
+        }
       }
+
+      if (detail?.action === 'remove' && detail.participantId) {
+        const removedParticipantId = detail.participantId
+        setParticipants(current => current.filter(participant => participant.id !== removedParticipantId))
+        if (member) {
+          setMyParticipantIds(current => {
+            const next = new Set(current)
+            next.delete(removedParticipantId)
+            return next
+          })
+        }
+      }
+
+      void reloadParticipants()
+      void reloadEvent()
+      if (member) void reloadMine(member.id)
     }
 
     window.addEventListener('participants-changed', handleParticipantsChanged)

@@ -23,6 +23,11 @@ type Props = {
   initialActiveCount: number
 }
 
+type ParticipantsChangedDetail = {
+  eventId?: string
+  activeDelta?: number
+}
+
 export default function EventStatusBadge({ event, initialActiveCount }: Props) {
   const [currentEvent, setCurrentEvent] = useState(event)
   const [activeCount, setActiveCount] = useState(initialActiveCount)
@@ -82,8 +87,12 @@ export default function EventStatusBadge({ event, initialActiveCount }: Props) {
 
   useEffect(() => {
     function handleParticipantsChanged(browserEvent: globalThis.Event) {
-      const detail = (browserEvent as CustomEvent<{ eventId?: string }>).detail
-      if (!detail?.eventId || detail.eventId === event.id) reload()
+      const detail = (browserEvent as CustomEvent<ParticipantsChangedDetail>).detail
+      if (detail?.eventId && detail.eventId !== event.id) return
+      if (typeof detail?.activeDelta === 'number') {
+        setActiveCount(current => Math.max(current + detail.activeDelta!, 0))
+      }
+      void reload()
     }
 
     window.addEventListener('participants-changed', handleParticipantsChanged)

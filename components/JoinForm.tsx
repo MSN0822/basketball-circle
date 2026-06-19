@@ -40,6 +40,14 @@ type MineResponse = {
   guests?: PublicParticipant[]
 }
 
+type ParticipantsChangedDetail = {
+  eventId: string
+  action: 'upsert' | 'remove'
+  participant?: PublicParticipant
+  participantId?: string
+  activeDelta?: number
+}
+
 function getTemporaryCode(participant: PublicParticipant) {
   return participant.display_code ?? '発行済み'
 }
@@ -47,6 +55,10 @@ function getTemporaryCode(participant: PublicParticipant) {
 function getFamilyName(memberName: string) {
   const baseName = memberName.replace(/\([^()]*\)$/, '').trim()
   return baseName.split(/\s+/)[0] || baseName
+}
+
+function notifyParticipantsChanged(detail: ParticipantsChangedDetail) {
+  window.dispatchEvent(new CustomEvent('participants-changed', { detail }))
 }
 
 async function getJsonAuthHeaders() {
@@ -218,6 +230,10 @@ export default function JoinForm({ event, initialMember, initialParticipation, i
     setGuestNames(current => current.filter((_, i) => i !== index))
   }
 
+  function applyActiveDelta(delta: number) {
+    if (delta !== 0) setActiveCount(current => Math.max(current + delta, 0))
+  }
+
   async function handleJoin() {
     if (!member) return
     if (!canJoin) {
@@ -245,10 +261,20 @@ export default function JoinForm({ event, initialMember, initialParticipation, i
       return
     }
 
-    setParticipation(data.participant ?? null)
+    const nextParticipant = data.participant ?? null
+    setParticipation(nextParticipant)
+    const activeDelta = nextParticipant?.status === 'active' ? 1 : 0
+    applyActiveDelta(activeDelta)
     setMessage('参加登録が完了しました。')
-    await reloadMine(member.id)
-    window.dispatchEvent(new CustomEvent('participants-changed', { detail: { eventId: event.id } }))
+    if (nextParticipant) {
+      notifyParticipantsChanged({
+        eventId: event.id,
+        action: 'upsert',
+        participant: nextParticipant,
+        activeDelta,
+      })
+    }
+    void reloadMine(member.id)
   }
 
   async function handleCancel() {
@@ -271,11 +297,19 @@ export default function JoinForm({ event, initialMember, initialParticipation, i
       return
     }
 
+    const cancelled = participation
     setParticipation(null)
     setShowCancelConfirm(false)
+    const activeDelta = cancelled.status === 'active' ? -1 : 0
+    applyActiveDelta(activeDelta)
     setMessage('キャンセルしました。')
-    await reloadMine(member.id)
-    window.dispatchEvent(new CustomEvent('participants-changed', { detail: { eventId: event.id } }))
+    notifyParticipantsChanged({
+      eventId: event.id,
+      action: 'remove',
+      participantId: cancelled.id,
+      activeDelta,
+    })
+    void reloadMine(member.id)
   }
 
   async function handleAddGuest(index: number) {
@@ -317,10 +351,23 @@ export default function JoinForm({ event, initialMember, initialParticipation, i
       return
     }
 
+    const nextGuest = data.participant ?? null
+    if (nextGuest) {
+      setGuests(current => [...current.filter(guest => guest.id !== nextGuest.id), nextGuest])
+    }
     clearGuestInput(index)
+    const activeDelta = nextGuest?.status === 'active' ? 1 : 0
+    applyActiveDelta(activeDelta)
     setMessage(`友達を追加しました。臨時ID: ${data.temporary_code ?? '発行済み'}`)
-    await reloadMine(member.id)
-    window.dispatchEvent(new CustomEvent('participants-changed', { detail: { eventId: event.id } }))
+    if (nextGuest) {
+      notifyParticipantsChanged({
+        eventId: event.id,
+        action: 'upsert',
+        participant: nextGuest,
+        activeDelta,
+      })
+    }
+    void reloadMine(member.id)
   }
 
   async function handleCancelGuest(guest: PublicParticipant) {
@@ -344,9 +391,17 @@ export default function JoinForm({ event, initialMember, initialParticipation, i
       return
     }
 
+    setGuests(current => current.filter(item => item.id !== guest.id))
+    const activeDelta = guest.status === 'active' ? -1 : 0
+    applyActiveDelta(activeDelta)
     setMessage(`${guest.name} さんをキャンセルしました。`)
-    await reloadMine(member.id)
-    window.dispatchEvent(new CustomEvent('participants-changed', { detail: { eventId: event.id } }))
+    notifyParticipantsChanged({
+      eventId: event.id,
+      action: 'remove',
+      participantId: guest.id,
+      activeDelta,
+    })
+    void reloadMine(member.id)
   }
 
   if (!statusLoaded) {
