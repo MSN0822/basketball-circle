@@ -199,6 +199,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ event, participants: participants ?? [] })
   }
 
+  const grouped = req.nextUrl.searchParams.get('grouped') === '1'
+  if (grouped) {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .order('event_date', { ascending: true })
+
+    if (error) return jsonError(error.message, 500)
+    const allEvents = (data ?? []) as Event[]
+    return NextResponse.json({
+      events: allEvents.filter(event => event.status !== 'archived'),
+      archivedEvents: allEvents.filter(event => event.status === 'archived'),
+    })
+  }
+
   const archived = req.nextUrl.searchParams.get('archived') === '1'
   let query = supabase
     .from('events')

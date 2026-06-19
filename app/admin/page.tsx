@@ -47,19 +47,31 @@ export default function AdminPage() {
   const [password, setPassword] = useState('')
   const [authed, setAuthed] = useState(false)
   const [authError, setAuthError] = useState('')
-  const [events, setEvents] = useState<Event[]>([])
+  const [eventLists, setEventLists] = useState<{ current: Event[]; archived: Event[] }>({
+    current: [],
+    archived: [],
+  })
+  const [eventsLoading, setEventsLoading] = useState(false)
   const [showArchive, setShowArchive] = useState(false)
 
   const loadEvents = useCallback(async () => {
-    const res = await fetch(showArchive ? '/api/admin/events?archived=1' : '/api/admin/events')
-    if (!res.ok) {
-      setAuthed(false)
-      setEvents([])
-      return
+    setEventsLoading(true)
+    try {
+      const res = await fetch('/api/admin/events?grouped=1')
+      if (!res.ok) {
+        setAuthed(false)
+        setEventLists({ current: [], archived: [] })
+        return
+      }
+      const data = await res.json() as { events?: Event[]; archivedEvents?: Event[] }
+      setEventLists({
+        current: data.events ?? [],
+        archived: data.archivedEvents ?? [],
+      })
+    } finally {
+      setEventsLoading(false)
     }
-    const data = await res.json() as { events?: Event[] }
-    setEvents(data.events ?? [])
-  }, [showArchive])
+  }, [])
 
   useEffect(() => {
     localStorage.removeItem(LEGACY_ADMIN_KEY)
@@ -77,7 +89,7 @@ export default function AdminPage() {
     await fetch('/api/admin/verify', { method: 'DELETE' })
     setAuthed(false)
     setPassword('')
-    setEvents([])
+    setEventLists({ current: [], archived: [] })
   }
 
   async function handleLogin() {
@@ -118,9 +130,10 @@ export default function AdminPage() {
     )
   }
 
-  const drafts = events.filter(e => e.status === 'draft')
-  const published = events.filter(e => e.status !== 'draft' && e.status !== 'archived')
-  const listedEvents = showArchive ? events : published
+  const currentEvents = eventLists.current
+  const drafts = currentEvents.filter(e => e.status === 'draft')
+  const published = currentEvents.filter(e => e.status !== 'draft' && e.status !== 'archived')
+  const listedEvents = showArchive ? eventLists.archived : published
 
   return (
     <main className="max-w-lg mx-auto px-4 py-8 space-y-8">
@@ -173,7 +186,10 @@ export default function AdminPage() {
 
       <div className="space-y-3">
         <h2 className="text-sm font-semibold">イベント管理</h2>
-        {listedEvents.length === 0 && (
+        {eventsLoading && listedEvents.length === 0 && (
+          <p className="text-sm text-muted-foreground">読み込み中...</p>
+        )}
+        {!eventsLoading && listedEvents.length === 0 && (
           <p className="text-sm text-muted-foreground">イベントはありません</p>
         )}
         {listedEvents.map(event => (

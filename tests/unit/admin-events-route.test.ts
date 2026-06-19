@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { jsonRequest } from './helpers/route'
+import { emptyRequest, jsonRequest } from './helpers/route'
 import { mockSupabaseFrom } from './helpers/mock-supabase'
 
 const EVENT_ID = '11111111-1111-4111-8111-111111111111'
@@ -34,6 +34,7 @@ const validCreateBody = {
 async function loadRoute(options: {
   adminOk?: boolean
   currentEvent?: unknown
+  selectOrderResult?: { data: unknown; error: null | { message: string } }
   insertResult?: { data: unknown; error: null | { message: string } }
   updateResult?: { data: unknown; error: null | { message: string } }
   deleteResult?: { error: null | { message: string } }
@@ -46,6 +47,7 @@ async function loadRoute(options: {
       data: options.currentEvent === undefined ? { id: EVENT_ID } : options.currentEvent,
       error: null,
     },
+    selectOrderResult: options.selectOrderResult,
     insertSingleResult: options.insertResult ?? { data: baseEvent, error: null },
     updateSingleResult: options.updateResult ?? { data: baseEvent, error: null },
     deleteEqResult: options.deleteResult ?? { error: null },
@@ -54,13 +56,39 @@ async function loadRoute(options: {
 
   vi.doMock('@/lib/supabase-server', () => ({ getServerSupabase: () => supabase.client }))
   vi.doMock('@/lib/api-auth', () => ({ checkAdmin }))
+  vi.doMock('@/lib/event-publishing', () => ({ publishDueDraftEvents: vi.fn().mockResolvedValue(undefined) }))
 
   const route = await import('@/app/api/admin/events/route')
-  return { POST: route.POST, PATCH: route.PATCH, DELETE: route.DELETE, supabase, mocks: { checkAdmin } }
+  return { GET: route.GET, POST: route.POST, PATCH: route.PATCH, DELETE: route.DELETE, supabase, mocks: { checkAdmin } }
 }
 
 beforeEach(() => {
   vi.restoreAllMocks()
+})
+
+describe('GET /api/admin/events', () => {
+  it('returns current and archived events together for grouped list loading', async () => {
+    const archivedEvent = { ...baseEvent, id: '22222222-2222-4222-8222-222222222222', status: 'archived' }
+    const { GET, supabase } = await loadRoute({
+      selectOrderResult: { data: [baseEvent, archivedEvent], error: null },
+    })
+
+    const req = emptyRequest({
+      url: 'https://example.test/api/admin/events?grouped=1',
+    })
+    Object.defineProperty(req, 'nextUrl', {
+      value: new URL('https://example.test/api/admin/events?grouped=1'),
+    })
+    const res = await GET(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.events).toHaveLength(1)
+    expect(body.archivedEvents).toHaveLength(1)
+    expect(body.events[0].id).toBe(baseEvent.id)
+    expect(body.archivedEvents[0].id).toBe(archivedEvent.id)
+    expect(supabase.spies.selectOrder).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('POST /api/admin/events', () => {
