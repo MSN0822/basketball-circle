@@ -21,7 +21,7 @@ create table events (
   publishes_at     timestamptz,
   max_participants int not null default 35,
   threshold        int not null default 30,
-  status           text not null default 'accepting' check (status in ('accepting', 'closed', 'draft')),
+  status           text not null default 'accepting' check (status in ('accepting', 'closed', 'draft', 'archived')),
   is_manual_close  boolean not null default false,
   created_at       timestamptz not null default now()
 );
@@ -32,7 +32,8 @@ create table members (
   member_number  text not null unique,
   name           text not null,
   auth_user_id   uuid references auth.users(id),
-  created_at     timestamptz not null default now()
+  created_at     timestamptz not null default now(),
+  last_accessed_at timestamptz not null default now()
 );
 
 -- 参加者テーブル
@@ -53,7 +54,7 @@ alter table members enable row level security;
 alter table participants enable row level security;
 
 -- 現状のアプリ実装に合わせた公開ポリシー
-create policy "events_select" on events for select to authenticated using (status <> 'draft');
+create policy "events_select" on events for select to authenticated using (status in ('accepting', 'closed'));
 create policy "events_insert_none" on events for insert with check (false);
 create policy "events_update_none" on events for update using (false) with check (false);
 create policy "events_delete_none" on events for delete using (false);
@@ -85,7 +86,7 @@ select
   end as display_code
 from public.participants p
 join public.events e on e.id = p.event_id
-where e.status <> 'draft';
+where e.status in ('accepting', 'closed');
 revoke all on public.participants_public from public;
 revoke all on public.participants_public from anon;
 grant select on public.participants_public to authenticated;
@@ -109,6 +110,7 @@ alter publication supabase_realtime add table events;
 create index on events(event_date);
 create index on events(status);
 create index on members(auth_user_id);
+create unique index members_auth_user_id_uq on members(auth_user_id) where auth_user_id is not null;
 create index on participants(event_id, status);
 create index on participants(event_id, slot_number);
 create index on participants(member_id);

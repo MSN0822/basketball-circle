@@ -89,6 +89,7 @@ export default function AdminEventDetailPage() {
 
   async function handleToggleStatus() {
     if (!event) return
+    if (event.status === 'archived') return
     const newStatus =
       event.status === 'draft'
         ? 'accepting'
@@ -152,7 +153,7 @@ export default function AdminEventDetailPage() {
   const waitlist = participants.filter(p => p.status === 'waitlist')
 
   const statusLabel =
-    event.status === 'draft' ? '下書き' : event.status === 'accepting' ? '受付中' : '締め切り'
+    event.status === 'draft' ? '下書き' : event.status === 'accepting' ? '受付中' : event.status === 'archived' ? 'アーカイブ' : '締め切り'
   const toggleLabel =
     event.status === 'draft' ? '今すぐ公開' : event.status === 'accepting' ? '締め切る' : '再開する'
 

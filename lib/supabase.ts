@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 
-export type EventStatus = 'accepting' | 'closed' | 'draft'
+export type EventStatus = 'accepting' | 'closed' | 'draft' | 'archived'
 export type ParticipantStatus = 'active' | 'cancelled' | 'waitlist'
 
 export interface Event {
@@ -40,6 +40,7 @@ export interface Member {
   name: string
   auth_user_id: string | null
   created_at: string
+  last_accessed_at: string
 }
 
 function getSupabaseClient() {

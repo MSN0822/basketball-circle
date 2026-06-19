@@ -10,30 +10,69 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 
+async function ensureMember(accessToken: string, authUserId: string, name: string): Promise<boolean> {
+  const res = await fetch('/api/members', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ name, auth_user_id: authUserId }),
+  })
+  return res.ok
+}
+
+function getSignupErrorMessage(error: { code?: string; message?: string; status?: number } | null): string {
+  if (!error) return '登録に失敗しました'
+  const message = error.message?.toLowerCase() ?? ''
+  if (error.code === 'over_email_send_rate_limit' || error.status === 429 || message.includes('rate limit')) {
+    return '現在、確認メールの送信上限に達しています。お手数ですが、1時間ほど空けてからもう一度登録してください。'
+  }
+  return error.message ?? '登録に失敗しました'
+}
+
 export default function LoginPage() {
   const router = useRouter()
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [mode, setMode] = useState<'login' | 'register' | 'verify'>('login')
+  const [pendingRegistration, setPendingRegistration] = useState<{
+    email: string
+    displayName: string
+  } | null>(null)
   const [lastName, setLastName] = useState('')
   const [firstName, setFirstName] = useState('')
   const [nickname, setNickname] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [verificationCode, setVerificationCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   function switchMode(next: 'login' | 'register') {
     setMode(next)
     setError('')
+    setVerificationCode('')
+    setPendingRegistration(null)
   }
 
   async function handleLogin() {
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
     if (error) {
-      setError('メールアドレスまたはパスワードが違います')
+      setError(error.message.includes('Email not confirmed')
+        ? 'メール確認が完了していません。登録時に届いた確認コードを入力してください'
+        : 'メールアドレスまたはパスワードが違います')
       return
+    }
+    const session = data.session
+    const user = data.user
+    if (session?.access_token && user) {
+      const fallbackName =
+        typeof user.user_metadata?.display_name === 'string' && user.user_metadata.display_name.trim()
+          ? user.user_metadata.display_name.trim()
+          : (user.email?.split('@')[0] ?? 'Member')
+      await ensureMember(session.access_token, user.id, fallbackName)
     }
     router.push('/')
   }
@@ -57,26 +96,54 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
+    const normalizedEmail = email.trim()
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+      options: {
+        data: {
+          display_name: displayName,
+        },
+      },
+    })
     if (authError || !authData.user) {
       setLoading(false)
-      setError(authError?.message ?? '登録に失敗しました')
+      setError(getSignupErrorMessage(authError))
       return
     }
 
-    const { data: sessionData } = await supabase.auth.getSession()
-    const res = await fetch('/api/members', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(sessionData.session?.access_token
-          ? { Authorization: `Bearer ${sessionData.session.access_token}` }
-          : {}),
-      },
-      body: JSON.stringify({ name: displayName, auth_user_id: authData.user.id }),
-    })
     setLoading(false)
-    if (!res.ok) {
+    setPendingRegistration({ email: normalizedEmail, displayName })
+    setVerificationCode('')
+    setMode('verify')
+  }
+
+  async function handleVerifyCode() {
+    if (!pendingRegistration) return
+    const token = verificationCode.trim()
+    if (!/^\d{6}$/.test(token)) {
+      setError('6桁の確認コードを入力してください')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    const { data, error: verifyError } = await supabase.auth.verifyOtp({
+      email: pendingRegistration.email,
+      token,
+      type: 'signup',
+    })
+
+    if (verifyError || !data.session?.access_token || !data.user) {
+      setLoading(false)
+      setError('確認コードが正しくないか、有効期限が切れています')
+      return
+    }
+
+    const ok = await ensureMember(data.session.access_token, data.user.id, pendingRegistration.displayName)
+    setLoading(false)
+    if (!ok) {
       setError('会員情報の登録に失敗しました')
       return
     }
@@ -101,7 +168,7 @@ export default function LoginPage() {
             <button
               onClick={() => switchMode('register')}
               className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                mode === 'register' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+                mode === 'register' || mode === 'verify' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
               }`}
             >
               新規登録
@@ -109,6 +176,25 @@ export default function LoginPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {mode === 'verify' && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {pendingRegistration?.email} に届いた6桁の確認コードを入力してください。
+              </p>
+              <div className="space-y-1.5">
+                <Label>確認コード</Label>
+                <Input
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={verificationCode}
+                  onChange={e => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onKeyDown={e => e.key === 'Enter' && handleVerifyCode()}
+                  placeholder="123456"
+                />
+              </div>
+            </div>
+          )}
+
           {mode === 'register' && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -141,34 +227,38 @@ export default function LoginPage() {
               </div>
             </div>
           )}
-          <div className="space-y-1.5">
-            <Label>メールアドレス</Label>
-            <Input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="you@example.com"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>パスワード</Label>
-            <Input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder={mode === 'register' ? '6文字以上' : ''}
-              onKeyDown={e => e.key === 'Enter' && (mode === 'login' ? handleLogin() : handleRegister())}
-            />
-          </div>
+          {mode !== 'verify' && (
+            <>
+              <div className="space-y-1.5">
+                <Label>メールアドレス</Label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>パスワード</Label>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder={mode === 'register' ? '6文字以上' : ''}
+                  onKeyDown={e => e.key === 'Enter' && (mode === 'login' ? handleLogin() : handleRegister())}
+                />
+              </div>
+            </>
+          )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <Button
-            onClick={mode === 'login' ? handleLogin : handleRegister}
+            onClick={mode === 'login' ? handleLogin : mode === 'register' ? handleRegister : handleVerifyCode}
             disabled={loading}
             className="w-full"
           >
-            {loading ? '処理中...' : mode === 'login' ? 'ログイン' : '登録する'}
+            {loading ? '処理中...' : mode === 'login' ? 'ログイン' : mode === 'register' ? '確認コードを送る' : '登録を完了する'}
           </Button>
         </CardContent>
       </Card>

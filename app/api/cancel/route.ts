@@ -9,7 +9,7 @@ import { publishDueDraftEvents } from '@/lib/event-publishing'
 const supabase = getServerSupabase()
 
 type EventAccess = {
-  status: 'accepting' | 'closed' | 'draft'
+  status: 'accepting' | 'closed' | 'draft' | 'archived'
   publishes_at: string | null
   closes_at: string | null
 }

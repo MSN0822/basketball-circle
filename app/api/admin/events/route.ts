@@ -6,7 +6,7 @@ import { isValidUuid } from '@/lib/validators'
 import { publishDueDraftEvents } from '@/lib/event-publishing'
 
 const supabase = getServerSupabase()
-const EVENT_STATUSES: EventStatus[] = ['accepting', 'closed', 'draft']
+const EVENT_STATUSES: EventStatus[] = ['accepting', 'closed', 'draft', 'archived']
 const MAX_TITLE_LENGTH = 200
 const MAX_LOCATION_LENGTH = 200
 const MAX_URL_LENGTH = 2000
@@ -199,10 +199,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ event, participants: participants ?? [] })
   }
 
-  const { data, error } = await supabase
+  const archived = req.nextUrl.searchParams.get('archived') === '1'
+  let query = supabase
     .from('events')
     .select('*')
-    .order('event_date', { ascending: true })
+
+  query = archived
+    ? query.eq('status', 'archived')
+    : query.neq('status', 'archived')
+
+  const { data, error } = await query.order('event_date', { ascending: true })
 
   if (error) return jsonError(error.message, 500)
   return NextResponse.json({ events: data ?? [] })

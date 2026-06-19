@@ -24,4 +24,11 @@ describe('event visibility helpers', () => {
     expect(isVisibleToMembers(event)).toBe(true)
     expect(effectiveEventStatus(event, NOW)).toBe('closed')
   })
+
+  it('hides archived events from member-facing reads', () => {
+    const event = { status: 'archived' as const, publishes_at: null, closes_at: null }
+
+    expect(isVisibleToMembers(event)).toBe(false)
+    expect(effectiveEventStatus(event, NOW)).toBe('archived')
+  })
 })

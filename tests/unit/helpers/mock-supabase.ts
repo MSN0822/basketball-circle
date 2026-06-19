@@ -31,6 +31,7 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
   const selectOrder = vi.fn().mockResolvedValue(selectOrderResult)
   const selectQuery = {
     eq: vi.fn(),
+    lt: vi.fn(),
     neq: vi.fn(),
     like: vi.fn(),
     in: vi.fn(),
@@ -38,12 +39,15 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
     order: selectOrder,
     single: selectSingle,
     maybeSingle: selectMaybeSingle,
+    then: vi.fn(),
   }
   selectQuery.eq.mockReturnValue(selectQuery)
+  selectQuery.lt.mockReturnValue(selectQuery)
   selectQuery.neq.mockReturnValue(selectQuery)
   selectQuery.like.mockReturnValue(selectQuery)
   selectQuery.in.mockReturnValue(selectQuery)
   selectQuery.limit.mockReturnValue(selectQuery)
+  selectQuery.then.mockImplementation((resolve, reject) => Promise.resolve(selectOrderResult).then(resolve, reject))
   const select = vi.fn().mockReturnValue(selectQuery)
 
   const insertSingle = vi.fn().mockResolvedValue(insertSingleResult)
@@ -54,11 +58,13 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
   const updateSelect = vi.fn().mockReturnValue({ single: updateSingle })
   const updateQuery = {
     eq: vi.fn(),
+    in: vi.fn(),
     not: vi.fn(),
     lte: vi.fn().mockResolvedValue(updateManyResult),
     select: updateSelect,
   }
   updateQuery.eq.mockReturnValue(updateQuery)
+  updateQuery.in.mockResolvedValue(updateManyResult)
   updateQuery.not.mockReturnValue(updateQuery)
   const update = vi.fn().mockReturnValue(updateQuery)
 
@@ -79,6 +85,11 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
     client: {
       from: mockFrom,
       rpc: mockRpc,
+      auth: {
+        admin: {
+          deleteUser: vi.fn().mockResolvedValue({ error: null }),
+        },
+      },
     },
     spies: {
       mockFrom,
@@ -95,6 +106,7 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
       insert,
       update,
       updateEq: updateQuery.eq,
+      updateIn: updateQuery.in,
       updateNot: updateQuery.not,
       updateLte: updateQuery.lte,
       deleteFn,

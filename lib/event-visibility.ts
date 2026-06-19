@@ -11,7 +11,7 @@ function isPast(iso: string | null, nowMs: number): boolean {
 }
 
 export function isVisibleToMembers(event: EventVisibilityFields): boolean {
-  return event.status !== 'draft'
+  return event.status === 'accepting' || event.status === 'closed'
 }
 
 export function effectiveEventStatus(event: EventVisibilityFields, nowMs = Date.now()): EventStatus {

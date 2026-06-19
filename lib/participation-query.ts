@@ -4,7 +4,7 @@ import { isVisibleToMembers } from '@/lib/event-visibility'
 
 type VisibleEventFields = {
   id: string
-  status: 'accepting' | 'closed' | 'draft'
+  status: 'accepting' | 'closed' | 'draft' | 'archived'
   publishes_at: string | null
   closes_at: string | null
 }

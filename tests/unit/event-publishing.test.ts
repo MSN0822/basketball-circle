@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { publishDueDraftEvents } from '@/lib/event-publishing'
 import { mockSupabaseFrom } from './helpers/mock-supabase'
 
@@ -7,7 +8,7 @@ describe('event publishing helpers', () => {
     const supabase = mockSupabaseFrom()
     const now = new Date('2026-06-08T00:00:00.000Z')
 
-    await publishDueDraftEvents(supabase.client, now)
+    await publishDueDraftEvents(supabase.client as unknown as SupabaseClient, now)
 
     expect(supabase.spies.update).toHaveBeenCalledWith({
       status: 'accepting',

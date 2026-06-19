@@ -48,9 +48,10 @@ export default function AdminPage() {
   const [authed, setAuthed] = useState(false)
   const [authError, setAuthError] = useState('')
   const [events, setEvents] = useState<Event[]>([])
+  const [showArchive, setShowArchive] = useState(false)
 
   const loadEvents = useCallback(async () => {
-    const res = await fetch('/api/admin/events')
+    const res = await fetch(showArchive ? '/api/admin/events?archived=1' : '/api/admin/events')
     if (!res.ok) {
       setAuthed(false)
       setEvents([])
@@ -58,7 +59,7 @@ export default function AdminPage() {
     }
     const data = await res.json() as { events?: Event[] }
     setEvents(data.events ?? [])
-  }, [])
+  }, [showArchive])
 
   useEffect(() => {
     localStorage.removeItem(LEGACY_ADMIN_KEY)
@@ -118,13 +119,17 @@ export default function AdminPage() {
   }
 
   const drafts = events.filter(e => e.status === 'draft')
-  const published = events.filter(e => e.status !== 'draft')
+  const published = events.filter(e => e.status !== 'draft' && e.status !== 'archived')
+  const listedEvents = showArchive ? events : published
 
   return (
     <main className="max-w-lg mx-auto px-4 py-8 space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">管理者ページ</h1>
         <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowArchive(value => !value)}>
+            {showArchive ? '通常一覧' : 'アーカイブ'}
+          </Button>
           <Link href="/admin/create">
             <Button size="sm">+ 新規作成</Button>
           </Link>
@@ -134,7 +139,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {drafts.length > 0 && (
+      {!showArchive && drafts.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">下書き</h2>
           {drafts.map(event => (
@@ -168,10 +173,10 @@ export default function AdminPage() {
 
       <div className="space-y-3">
         <h2 className="text-sm font-semibold">イベント管理</h2>
-        {published.length === 0 && (
+        {listedEvents.length === 0 && (
           <p className="text-sm text-muted-foreground">イベントはありません</p>
         )}
-        {published.map(event => (
+        {listedEvents.map(event => (
           <div
             key={event.id}
             onClick={() => router.push(`/admin/events/${event.id}`)}
