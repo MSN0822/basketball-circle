@@ -101,14 +101,26 @@ export default function LoginPage() {
       email: normalizedEmail,
       password,
       options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
           display_name: displayName,
         },
       },
     })
-    if (authError || !authData.user) {
+    if (authError) {
       setLoading(false)
       setError(getSignupErrorMessage(authError))
+      return
+    }
+
+    if (authData.session?.access_token && authData.user) {
+      const ok = await ensureMember(authData.session.access_token, authData.user.id, displayName)
+      setLoading(false)
+      if (!ok) {
+        setError('会員情報の登録に失敗しました')
+        return
+      }
+      router.push('/')
       return
     }
 
@@ -129,11 +141,20 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { data, error: verifyError } = await supabase.auth.verifyOtp({
+    let { data, error: verifyError } = await supabase.auth.verifyOtp({
       email: pendingRegistration.email,
       token,
       type: 'signup',
     })
+    if (verifyError) {
+      const retry = await supabase.auth.verifyOtp({
+        email: pendingRegistration.email,
+        token,
+        type: 'email',
+      })
+      data = retry.data
+      verifyError = retry.error
+    }
 
     if (verifyError || !data.session?.access_token || !data.user) {
       setLoading(false)
