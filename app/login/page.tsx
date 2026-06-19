@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase-browser'
 
@@ -59,10 +59,6 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
-  useEffect(() => {
-    router.prefetch('/')
-  }, [router])
-
   function switchMode(next: 'login' | 'register') {
     setMode(next)
     setError('')
@@ -90,9 +86,9 @@ export default function LoginPage() {
         typeof user.user_metadata?.display_name === 'string' && user.user_metadata.display_name.trim()
           ? user.user_metadata.display_name.trim()
           : (user.email?.split('@')[0] ?? 'Member')
-      void ensureMember(session.access_token, user.id, fallbackName).catch(() => undefined)
+      await ensureMember(session.access_token, user.id, fallbackName)
     }
-    router.replace('/')
+    router.push('/')
   }
 
   async function handleRegister() {

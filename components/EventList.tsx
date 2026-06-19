@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Event, PublicParticipant } from '@/lib/supabase'
 import { getSupabase } from '@/lib/supabase-browser'
 import { isVisibleToMembers, withEffectiveEventStatus } from '@/lib/event-visibility'
@@ -60,6 +60,7 @@ function toParticipationMap(participations: PublicParticipant[] | null): Record<
 }
 
 export default function EventList({ events, initialMyParticipations }: Props) {
+  const router = useRouter()
   const [realtimeEvents, setRealtimeEvents] = useState<Event[] | null>(null)
   const [myParticipations, setMyParticipations] = useState<Record<string, PublicParticipant>>(
     () => toParticipationMap(initialMyParticipations)
@@ -126,12 +127,7 @@ export default function EventList({ events, initialMyParticipations }: Props) {
       {visibleEvents.map(event => {
         const myP = myParticipations[event.id]
         return (
-          <Link
-            key={event.id}
-            href={`/events/${event.id}`}
-            prefetch
-            className="block"
-          >
+          <div key={event.id} onClick={() => router.push(`/events/${event.id}`)} className="cursor-pointer">
             <Card className="hover:shadow-md transition-shadow">
               <CardHeader>
                 <CardTitle className="text-base">{event.title}</CardTitle>
@@ -149,7 +145,7 @@ export default function EventList({ events, initialMyParticipations }: Props) {
                 <p className="text-sm text-muted-foreground">📍 {event.location}</p>
               </CardHeader>
             </Card>
-          </Link>
+          </div>
         )
       })}
     </div>
