@@ -21,6 +21,11 @@ type JsonResult<T = unknown> = {
   body: T
   headers: Headers
 }
+type SignupRequestBody = {
+  email?: string
+  password?: string
+  data?: { display_name?: string }
+}
 
 async function readLocalEnv(): Promise<LocalEnv> {
   const raw = await fs.readFile(path.join(process.cwd(), '.env.local'), 'utf8')
@@ -357,52 +362,69 @@ test.describe('admin-flows E2E', () => {
     }
   })
 
-  test('[GAP-12] new member registration flow', async ({ page }) => {
+  test('[GAP-12] registration request waits for email code before verification step', async ({ page }) => {
     const suffix = Date.now()
     const email = `qa-${runId.toLowerCase()}-${suffix}@example.com`
     const password = `Qa-${suffix}-pass`
-    let authUserId: string | null = null
+    const displayName = `QA 登録${suffix}(確認)`
+    let signupRequest: SignupRequestBody | undefined
+    let signupUrl = ''
 
-    try {
-      await page.goto('/login')
-      await page.locator('button').nth(1).click()
+    await page.route('**/auth/v1/signup**', async route => {
+      signupUrl = route.request().url()
+      signupRequest = route.request().postDataJSON() as SignupRequestBody
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: '11111111-1111-4111-8111-111111111111',
+          aud: 'authenticated',
+          role: 'authenticated',
+          email,
+          phone: '',
+          confirmation_sent_at: new Date().toISOString(),
+          email_confirmed_at: null,
+          confirmed_at: null,
+          app_metadata: { provider: 'email', providers: ['email'] },
+          user_metadata: { display_name: displayName },
+          identities: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          is_anonymous: false,
+        }),
+      })
+    })
 
-      await page.locator('input').nth(0).fill('QA')
-      await page.locator('input').nth(1).fill(`登録${suffix}`)
-      await page.locator('input').nth(2).fill('確認')
-      await page.locator('input[type="email"]').fill(email)
-      await page.locator('input[type="password"]').fill(password)
-      await screenshot(page, 'gap12-register-form-filled.png')
+    await page.goto('/login')
+    await page.getByRole('button', { name: '新規登録' }).click()
 
-      await page.locator('button').last().click()
-      await page.waitForURL(url => !url.pathname.includes('/login'), { timeout: 15_000 })
+    await page.locator('input').nth(0).fill('QA')
+    await page.locator('input').nth(1).fill(`登録${suffix}`)
+    await page.locator('input').nth(2).fill('確認')
+    await page.locator('input[type="email"]').fill(email)
+    await page.locator('input[type="password"]').fill(password)
+    await screenshot(page, 'gap12-register-form-filled.png')
 
-      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers()
-      expect(authError).toBeNull()
-      const createdUser = authUsers.users.find(user => user.email === email)
-      expect(createdUser?.id).toBeTruthy()
-      authUserId = createdUser!.id
+    await page.getByRole('button', { name: '確認コードを送る' }).click()
 
-      const { data: member, error: memberError } = await supabaseAdmin
-        .from('members')
-        .select('id,name,auth_user_id')
-        .eq('auth_user_id', authUserId)
-        .maybeSingle()
-      expect(memberError).toBeNull()
-      expect(member?.name).toBe(`QA 登録${suffix}(確認)`)
-      await screenshot(page, 'gap12-after-register.png')
-    } finally {
-      if (authUserId) {
-        await supabaseAdmin.from('members').delete().eq('auth_user_id', authUserId)
-        await supabaseAdmin.auth.admin.deleteUser(authUserId)
-      } else {
-        const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
-        const createdUser = authUsers?.users.find(user => user.email === email)
-        if (createdUser?.id) {
-          await supabaseAdmin.from('members').delete().eq('auth_user_id', createdUser.id)
-          await supabaseAdmin.auth.admin.deleteUser(createdUser.id)
-        }
-      }
-    }
+    await expect(page).toHaveURL(/\/login/)
+    await expect(page.locator('main')).toContainText('確認コードを送信しました。')
+    await expect(page.getByRole('button', { name: 'コード入力へ進む' })).toBeVisible()
+    await expect(page.locator('input[placeholder="123456"]')).toHaveCount(0)
+    expect(signupRequest).toBeDefined()
+    expect(signupRequest?.email).toBe(email)
+    expect(signupRequest?.password).toBe(password)
+    expect(signupRequest?.data?.display_name).toBe(displayName)
+    expect(decodeURIComponent(signupUrl)).toContain('/auth/callback')
+    await screenshot(page, 'gap12-after-signup-request.png')
+
+    await page.getByRole('button', { name: 'コード入力へ進む' }).click()
+    await expect(page.locator('main')).toContainText(`${email} に届いた6桁の確認コードを入力してください。`)
+    await expect(page.locator('input[placeholder="123456"]')).toBeVisible()
+
+    await page.locator('input[placeholder="123456"]').fill('123')
+    await page.getByRole('button', { name: '登録を完了する' }).click()
+    await expect(page.locator('main')).toContainText('6桁の確認コードを入力してください')
+    await screenshot(page, 'gap12-verification-step-validation.png')
   })
 })
