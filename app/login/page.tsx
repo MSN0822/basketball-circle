@@ -86,9 +86,9 @@ export default function LoginPage() {
         typeof user.user_metadata?.display_name === 'string' && user.user_metadata.display_name.trim()
           ? user.user_metadata.display_name.trim()
           : (user.email?.split('@')[0] ?? 'Member')
-      await ensureMember(session.access_token, user.id, fallbackName)
+      void ensureMember(session.access_token, user.id, fallbackName).catch(() => undefined)
     }
-    router.push('/')
+    router.replace('/')
   }
 
   async function handleRegister() {

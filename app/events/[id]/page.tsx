@@ -1,7 +1,5 @@
-import { Event, Member, PublicParticipant } from '@/lib/supabase'
+import { Event, PublicParticipant } from '@/lib/supabase'
 import { getServerSupabase } from '@/lib/supabase-server'
-import { getCookieMember } from '@/lib/server-member'
-import { getMyParticipationAndGuests } from '@/lib/participation-query'
 import { isVisibleToMembers, withEffectiveEventStatus } from '@/lib/event-visibility'
 import { publishDueDraftEvents } from '@/lib/event-publishing'
 import { Separator } from '@/components/ui/separator'
@@ -70,34 +68,14 @@ function formatDateRange(startStr: string, endStr: string | null): string {
 // 'use cache' や cacheComponents をこのルートに導入しないこと。
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [event, participants, cookieMember] = await Promise.all([
+  const [event, participants] = await Promise.all([
     getEvent(id),
     getParticipants(id),
-    getCookieMember(),
   ])
 
   if (!event) notFound()
 
-  // 申請状況をサーバ側で解決し、初回描画から正しいボタンを表示する。
-  // 解決に失敗した場合は member=null としてクライアント側フォールバックに委ねる。
-  let member: Member | null = cookieMember
-  let myParticipation: PublicParticipant | null = null
-  let myGuests: PublicParticipant[] = []
-  if (cookieMember) {
-    try {
-      const mine = await getMyParticipationAndGuests(getServerSupabase(), id, cookieMember.id)
-      myParticipation = mine.participation
-      myGuests = mine.guests
-    } catch {
-      member = null
-    }
-  }
-
   const active = participants.filter(p => p.status === 'active')
-  const myParticipantIds = [
-    ...(myParticipation ? [myParticipation.id] : []),
-    ...myGuests.map(guest => guest.id),
-  ]
   return (
     <main className="max-w-lg mx-auto px-4 py-8 space-y-6">
       <div>
@@ -140,9 +118,9 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
           <CardContent>
             <JoinForm
               event={event}
-              initialMember={member}
-              initialParticipation={myParticipation}
-              initialGuests={myGuests}
+              initialMember={null}
+              initialParticipation={null}
+              initialGuests={[]}
               initialActiveCount={active.length}
             />
           </CardContent>
@@ -155,8 +133,8 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       <ParticipantList
         event={event}
         initialParticipants={participants}
-        initialMember={member}
-        initialMyParticipantIds={myParticipantIds}
+        initialMember={null}
+        initialMyParticipantIds={[]}
       />
     </main>
   )

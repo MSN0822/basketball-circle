@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import { NextRequest } from 'next/server'
 import type { User } from '@supabase/supabase-js'
 import type { Member } from '@/lib/supabase'
+import { touchMemberLastAccess } from '@/lib/server-member'
 
 export const ADMIN_SESSION_COOKIE = 'basketball_admin_session'
 export const ADMIN_SESSION_MAX_AGE_SECONDS = 60 * 60 * 8
@@ -112,5 +113,6 @@ export async function getAuthenticatedMember(
     return { status: 403, error: '本人確認に失敗しました' }
   }
 
+  await touchMemberLastAccess(member)
   return { member }
 }
