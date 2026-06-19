@@ -443,7 +443,10 @@ await record('A-05', 'Due draft is promoted before member read surfaces expose i
     headers: authHeaders,
   })
   const participantsRes = await supabaseRest('participants_public', `?event_id=eq.${draftEvent.id}&select=id,event_id,name,status`, {
-    headers: authHeaders,
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+    },
   })
   return {
     promotionAttempts: promotion.attempts,

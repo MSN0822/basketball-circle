@@ -64,15 +64,15 @@ create policy "members_insert_none" on members for insert with check (false);
 create policy "members_update_none" on members for update using (false) with check (false);
 create policy "members_delete_none" on members for delete using (false);
 
--- participants には直 SELECT ポリシーを付与しない。anon/authenticated の公開読取は
--- participants_public view（security_invoker=false）経由のみ（user_code を露出させないため）。
+-- participants には直 SELECT ポリシーを付与しない。参加者一覧は
+-- server-side service_role 経由の participants_public view のみに限定する。
 create policy "participants_insert_none" on participants for insert with check (false);
 create policy "participants_update_none" on participants for update using (false) with check (false);
 create policy "participants_delete_none" on participants for delete using (false);
 
--- 公開読取サーフェス（参加者の user_code を露出させない definer view）
+-- 参加者一覧サーフェス（参加者の user_code を露出させない invoker view）
 drop view if exists public.participants_public;
-create view public.participants_public with (security_invoker = false) as
+create view public.participants_public with (security_invoker = true) as
 select
   p.id,
   p.event_id,
@@ -89,7 +89,8 @@ join public.events e on e.id = p.event_id
 where e.status in ('accepting', 'closed');
 revoke all on public.participants_public from public;
 revoke all on public.participants_public from anon;
-grant select on public.participants_public to authenticated;
+revoke all on public.participants_public from authenticated;
+grant select on public.participants_public to service_role;
 
 -- 管理者ログインのレート制限状態（server-side service_role のみアクセス）
 create table if not exists public.admin_login_attempts (

@@ -123,7 +123,7 @@ const checks = [
   },
   {
     id: 'Q9',
-    item: 'public read model: members own select + only promoted events public',
+    item: 'public read model: members own select + server-only participant view',
     sql: `
       SELECT
         EXISTS(
@@ -147,7 +147,7 @@ const checks = [
           WHERE n.nspname='public'
             AND c.relname='participants_public'
             AND c.relkind='v'
-            AND COALESCE(c.reloptions, ARRAY[]::text[]) @> ARRAY['security_invoker=false']
+            AND COALESCE(c.reloptions, ARRAY[]::text[]) @> ARRAY['security_invoker=true']
         )
         AND EXISTS(
           SELECT 1
@@ -157,8 +157,9 @@ const checks = [
             AND policyname='events_select'
             AND cmd='SELECT'
             AND roles::text = '{authenticated}'
-            AND qual LIKE '%draft%'
-            AND qual NOT LIKE '%publishes_at%'
+            AND qual LIKE '%accepting%'
+            AND qual LIKE '%closed%'
+            AND qual NOT LIKE '%archived%'
         )
         AND EXISTS(
           SELECT 1
@@ -166,8 +167,9 @@ const checks = [
           JOIN pg_namespace n ON n.oid = c.relnamespace
           WHERE n.nspname='public'
             AND c.relname='participants_public'
-            AND pg_get_viewdef(c.oid) LIKE '%draft%'
-            AND pg_get_viewdef(c.oid) NOT LIKE '%publishes_at%'
+            AND pg_get_viewdef(c.oid) LIKE '%accepting%'
+            AND pg_get_viewdef(c.oid) LIKE '%closed%'
+            AND pg_get_viewdef(c.oid) NOT LIKE '%archived%'
         )
         AND NOT EXISTS(
           SELECT 1
@@ -177,7 +179,8 @@ const checks = [
             AND column_name='member_id'
         )
         AND NOT has_table_privilege('anon', 'public.participants_public', 'select')
-        AND has_table_privilege('authenticated', 'public.participants_public', 'select')
+        AND NOT has_table_privilege('authenticated', 'public.participants_public', 'select')
+        AND has_table_privilege('service_role', 'public.participants_public', 'select')
         AS applied
     `,
     interpret: rows => booleanStatus(rows[0]?.applied),
