@@ -59,3 +59,22 @@ migrations を Supabase CLI 互換へ整備して恒久対応済み。
 2. **GAP-14 の IP キー前提**: テストは `ip:unknown` を期待するが、`next start` ローカルでは `x-forwarded-for: ::1` が付くため実キーは `ip:::1`。アサーションが環境依存。
 
 これら 2 点を解消しない限り、localhost 向け `admin-flows` フルスイートは緑にならない（DB スキーマ起因ではない）。
+
+---
+
+## 2026-06-21 ローカル pgTAP（`npm run test:db`）が新規ブロッカー2点で失敗
+
+### 失敗内容
+1. **`supabase start` が古い Docker ボリュームを再利用**し、migration が `20260603030000` までの20本しか当たらない（0608〜0620 の8本＝`archived` 追加・`participants_public` security_invoker=true・`register_member` gap-fill版が未適用）。結果、pgTAP が「archived がCHECK制約違反」「security_invoker=false」「register_member が max+1」で誤 FAIL する（テストではなく **DB 状態が古い**のが原因）。
+2. **`supabase db reset` が `20260614031000_schedule_due_draft_promotion.sql` で停止**: `create extension if not exists pg_cron` が `ERROR: permission denied for function pg_read_file (SQLSTATE 42501)`。ローカルの migration 適用ロールが pg_cron 作成権限を持たないため（本番 Supabase は pg_cron 許可済みなので発生しない）。2026-06-04 のローカル整備後（6/14）に追加された新ブロッカー。
+
+### 回避策（pgTAP をローカルで緑にする手順）
+1. Docker Desktop 起動 → daemon 待ち。
+2. `20260614031000_schedule_due_draft_promotion.sql` を一時退避（`.localskip` 等にリネーム。後続 migration は pg_cron / `publish_due_draft_events` に非依存なので安全に skip 可）。
+3. `npx supabase db reset`（古いボリュームを破棄し全 migration を再適用。`start` ではなく **reset** が要点）。
+4. `npm run test:db` → **3 files / 34 tests PASS** を確認（2026-06-21 実績）。
+5. 退避ファイルを**必ず元の名前へ復元**（任意で `npx supabase stop`）。
+
+### 次回注意
+- ローカル pgTAP は `supabase start` だけでは古い状態になりうる。**必ず `supabase db reset`** で作り直す。
+- pg_cron migration はローカル `db reset` / `test:db` を止める。恒久対応するなら config.toml でローカル pg_cron を有効化するか、`create extension pg_cron` を `do $$ ... exception when insufficient_privilege then null; end $$;` でガードする案を検討（本番適用は `apply-migration.mjs` の superuser 経由で従来通り当たる）。
