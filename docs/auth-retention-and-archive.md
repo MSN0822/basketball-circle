@@ -3,7 +3,7 @@
 ## Production Supabase Auth
 
 - Enable Supabase Auth email confirmation in production.
-- Set the email OTP length to 4.
+- Set the email OTP length to 6 (the signup verification UI validates a 6-digit code; `supabase/config.toml` also sets `otp_length = 6`).
 - Configure the signup email template so the user sees the token/code.
 - The app completes signup after `verifyOtp({ type: 'signup' })` succeeds, then creates the `members` row.
 

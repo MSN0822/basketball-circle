@@ -12,8 +12,9 @@ type DormantMember = {
 
 /**
  * Vercel Cron Job: 毎日 15:00 UTC (= 00:00 JST) に実行
- * 終了日時が過去のイベント（当日の日付が変わったもの）を自動削除する
- * CRON_SECRET を Vercel 環境変数に設定しないと自動削除は動きません
+ * - 終了日時を過ぎたイベントを status='archived' にしてユーザー画面から隠す（削除はしない）
+ * - 365日アクセスのない休眠会員を削除する（参加履歴は member_id を null 化して残す）
+ * CRON_SECRET を Vercel 環境変数に設定しないと動きません
  */
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET
