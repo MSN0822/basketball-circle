@@ -23,11 +23,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'participant_id の形式が正しくありません' }, { status: 400 })
   }
 
-  const { data: participant } = await supabase
+  const { data: participant, error: participantError } = await supabase
     .from('participants')
     .select('*')
     .eq('id', participant_id)
     .single<Participant>()
+
+  // PGRST116 = 0行（not found）。それ以外の error は DB 障害なので 404 にしない
+  if (participantError && participantError.code !== 'PGRST116') {
+    return NextResponse.json({ error: participantError.message }, { status: 500 })
+  }
 
   if (!participant) {
     return NextResponse.json({ error: '参加者が見つかりません' }, { status: 404 })

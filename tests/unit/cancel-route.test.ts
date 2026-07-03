@@ -15,6 +15,7 @@ type ParticipantInput = {
 
 async function loadRoute(options: {
   participant?: ParticipantInput | null
+  participantError?: { message: string; code?: string } | null
   event?: { status: 'accepting' | 'closed' | 'draft'; publishes_at: string | null } | null
   bearerToken?: string | null
   authMemberId?: string | null
@@ -29,7 +30,7 @@ async function loadRoute(options: {
     : options.participant
 
   const supabase = mockSupabaseFrom({
-    selectSingleResult: { data: participant, error: null },
+    selectSingleResult: { data: participant, error: options.participantError ?? null },
     selectMaybeSingleResult: {
       data: options.event === undefined ? { status: 'accepting', publishes_at: null } : options.event,
       error: null,
@@ -64,6 +65,32 @@ describe('POST /api/cancel', () => {
 
     expect(res.status).toBe(400)
     expect(supabase.spies.mockFrom).not.toHaveBeenCalled()
+  })
+
+  it('returns 500 (not 404) when the participant lookup fails with a real DB error', async () => {
+    const { POST, supabase } = await loadRoute({
+      participant: null,
+      participantError: { message: 'connection terminated', code: '08006' },
+    })
+
+    const res = await POST(jsonRequest({ participant_id: PARTICIPANT_ID, user_code: '12345' }))
+    const body = await responseJson(res)
+
+    expect(res.status).toBe(500)
+    expect(body.error).toBe('connection terminated')
+    expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('keeps returning 404 when the participant row does not exist (PGRST116)', async () => {
+    const { POST, supabase } = await loadRoute({
+      participant: null,
+      participantError: { message: 'JSON object requested, multiple (or no) rows returned', code: 'PGRST116' },
+    })
+
+    const res = await POST(jsonRequest({ participant_id: PARTICIPANT_ID, user_code: '12345' }))
+
+    expect(res.status).toBe(404)
+    expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
   })
 
   it('allows legacy non-member cancellation only through safeCompare', async () => {

@@ -196,6 +196,12 @@ shows the live `participants_public` reloptions, **A1/A4** dump participants/mem
   unset (fail-closed); timing-safe compare. Vercel attaches the bearer automatically.
 - **Confirm live:** Vercel Dashboard → Settings → **Cron Jobs** shows `/api/cron/cleanup`
   at `0 15 * * *`. Recent runs: Dashboard → Logs → Functions, search `GET /api/cron/cleanup`.
+- **Failure visibility:** every error branch now emits `console.error` with the failure
+  reason, so failed runs are searchable in Dashboard → Logs → Functions (filter by
+  `cron/cleanup:`). Auth-user deletions that fail are logged as 孤児化 (orphaned) with the
+  auth user id. Additionally, Vercel can send failure notifications for cron jobs
+  (Dashboard → Settings → Notifications); whether this is enabled for this project is
+  **未設定/未確認** — enable it and record the state here.
 - Note: `/api/cron/publish-drafts` exists as a **manual fallback only** (not in `vercel.json`,
   same bearer auth). Invoke manually if needed:
   `curl -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/cron/publish-drafts`.
@@ -322,6 +328,9 @@ dashboard — but remember DB state does not roll back with it.
       (Supabase Dashboard → Authentication → providers/email settings.)
 - [ ] Aware of Supabase **free-tier email limit: ~2 emails/hour**. Signup/confirmation emails
       beyond that are throttled; plan launch testing accordingly or use a custom SMTP provider.
+- [ ] If changing the email-confirmation method (custom SMTP, or turning Confirm email OFF),
+      follow `docs/EMAIL_SWITCHOVER_RUNBOOK.md` — the two items above become obsolete after
+      switching OFF, and the unconfirmed-user rescue step there is **mandatory** before the toggle.
 
 ---
 

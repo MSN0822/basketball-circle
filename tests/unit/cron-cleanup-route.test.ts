@@ -191,6 +191,18 @@ describe('GET /api/cron/cleanup', () => {
       expect(body.error).toBe('fetch boom')
     })
 
+    it('logs the failure reason to console.error so it appears in Vercel function logs', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const { GET } = await loadRoute({
+        safeCompareOk: true,
+        body: { eventsFetchError: { message: 'fetch boom' } },
+      })
+
+      await GET(authorizedRequest())
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('cron/cleanup'), 'fetch boom')
+    })
+
     it('nulls participants.member_id BEFORE deleting the dormant member', async () => {
       const { GET, supabase } = await loadRoute({
         safeCompareOk: true,
@@ -241,6 +253,7 @@ describe('GET /api/cron/cleanup', () => {
     })
 
     it('treats auth.admin.deleteUser failure as non-fatal and collects the error', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       const { GET, supabase } = await loadRoute({
         safeCompareOk: true,
         body: {
@@ -259,6 +272,12 @@ describe('GET /api/cron/cleanup', () => {
       expect(supabase.spies.membersDeleteEq).toHaveBeenCalledWith('id', 'member-1')
       // The failed auth user id is collected.
       expect(body.authDeleteErrors).toEqual(['auth-1'])
+      // The orphaned auth user is logged with its id for manual follow-up.
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('cron/cleanup'),
+        'auth-1',
+        'auth delete failed',
+      )
     })
 
     it('returns 500 when nulling participants fails (before deleting the member)', async () => {

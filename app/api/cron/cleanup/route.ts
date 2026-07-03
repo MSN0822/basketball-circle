@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
     .in('status', ['accepting', 'closed'])
 
   if (fetchError) {
+    console.error('cron/cleanup: 期限切れイベントの取得に失敗', fetchError.message)
     return NextResponse.json({ error: fetchError.message }, { status: 500 })
   }
 
@@ -53,6 +54,7 @@ export async function GET(req: NextRequest) {
       .in('id', batchIds)
 
     if (eventsError) {
+      console.error('cron/cleanup: イベントのアーカイブ化に失敗', eventsError.message, { archived, attemptedEvents: eventIds.length })
       return NextResponse.json(
         { error: eventsError.message, archived, attemptedEvents: eventIds.length },
         { status: 500 }
@@ -70,6 +72,7 @@ export async function GET(req: NextRequest) {
     .limit(CLEANUP_BATCH_SIZE)
 
   if (dormantError) {
+    console.error('cron/cleanup: 休眠会員の取得に失敗', dormantError.message)
     return NextResponse.json({ error: dormantError.message, archived }, { status: 500 })
   }
 
@@ -83,6 +86,7 @@ export async function GET(req: NextRequest) {
       .eq('member_id', member.id)
 
     if (participantError) {
+      console.error('cron/cleanup: 参加履歴の member_id null 化に失敗', member.id, participantError.message)
       return NextResponse.json(
         { error: participantError.message, archived, deletedMembers },
         { status: 500 }
@@ -95,6 +99,7 @@ export async function GET(req: NextRequest) {
       .eq('id', member.id)
 
     if (memberError) {
+      console.error('cron/cleanup: 休眠会員の削除に失敗', member.id, memberError.message)
       return NextResponse.json(
         { error: memberError.message, archived, deletedMembers },
         { status: 500 }
@@ -106,6 +111,8 @@ export async function GET(req: NextRequest) {
     if (member.auth_user_id) {
       const { error: authError } = await supabase.auth.admin.deleteUser(member.auth_user_id)
       if (authError) {
+        // members 行は削除済みのため、失敗した auth ユーザーは孤児として残る（要手動対応）
+        console.error('cron/cleanup: auth ユーザー削除に失敗（孤児化）', member.auth_user_id, authError.message)
         authDeleteErrors.push(member.auth_user_id)
       }
     }

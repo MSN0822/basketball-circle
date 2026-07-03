@@ -48,6 +48,11 @@ enable_anonymous_sign_ins = false
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
+# この値はローカル CLI スタック（supabase start）専用。本番の Confirm email は
+# Supabase ダッシュボード（Authentication → Providers → Email）が正。
+# ただし将来 config push（設定同期）を導入すると、ここが true のままだと本番の
+# OFF 設定を上書きして確認メールが復活する。メール確認方式を切り替える際は
+# docs/EMAIL_SWITCHOVER_RUNBOOK.md に従い、この値も同時に揃えること。
 enable_confirmations = true
 secure_password_change = false
 max_frequency = "1s"

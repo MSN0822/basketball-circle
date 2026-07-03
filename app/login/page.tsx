@@ -75,7 +75,7 @@ export default function LoginPage() {
     setLoading(false)
     if (error) {
       setError(error.message.includes('Email not confirmed')
-        ? 'メール確認が完了していません。登録時に届いた確認コードを入力してください'
+        ? 'メール確認が完了していません。新規登録タブから同じメールアドレスとパスワードで再登録すると、確認コードを再送できます'
         : 'メールアドレスまたはパスワードが違います')
       return
     }
@@ -86,7 +86,11 @@ export default function LoginPage() {
         typeof user.user_metadata?.display_name === 'string' && user.user_metadata.display_name.trim()
           ? user.user_metadata.display_name.trim()
           : (user.email?.split('@')[0] ?? 'Member')
-      await ensureMember(session.access_token, user.id, fallbackName)
+      const ok = await ensureMember(session.access_token, user.id, fallbackName)
+      if (!ok) {
+        setError('会員情報の取得に失敗しました。時間をおいて再度ログインしてください')
+        return
+      }
     }
     router.push('/')
   }
@@ -136,6 +140,14 @@ export default function LoginPage() {
         return
       }
       router.push('/')
+      return
+    }
+
+    // 確認済みの既存メールへの signUp は error も session も返さず、identities が
+    // 空のダミー user だけが返る（メールは送信されない）
+    if (authData.user && authData.user.identities?.length === 0) {
+      setLoading(false)
+      setError('このメールアドレスは登録済みです。ログインタブからお進みください')
       return
     }
 
