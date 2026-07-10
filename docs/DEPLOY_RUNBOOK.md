@@ -199,9 +199,14 @@ shows the live `participants_public` reloptions, **A1/A4** dump participants/mem
 - **Failure visibility:** every error branch now emits `console.error` with the failure
   reason, so failed runs are searchable in Dashboard → Logs → Functions (filter by
   `cron/cleanup:`). Auth-user deletions that fail are logged as 孤児化 (orphaned) with the
-  auth user id. Additionally, Vercel can send failure notifications for cron jobs
-  (Dashboard → Settings → Notifications); whether this is enabled for this project is
-  **未設定/未確認** — enable it and record the state here.
+  auth user id. **Vercel has no native cron-job-specific failure notification feature**
+  (confirmed 2026-07-10 against official docs: "Managing Cron Jobs" only offers manual
+  log inspection on failure; the "Alerts" feature offers generic Error/Usage Anomaly
+  detection — not cron-specific — and requires Pro/Enterprise plus the paid
+  Observability Plus add-on, unavailable on Hobby). Active (non-manual) failure
+  detection therefore requires external monitoring via Log Drains (e.g. Datadog, Axiom)
+  or a dead-man's-switch service (e.g. Healthchecks.io) — none of these are currently
+  configured for this project.
 - Note: `/api/cron/publish-drafts` exists as a **manual fallback only** (not in `vercel.json`,
   same bearer auth). Invoke manually if needed:
   `curl -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/cron/publish-drafts`.
