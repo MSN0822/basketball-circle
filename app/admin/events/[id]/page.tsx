@@ -159,8 +159,11 @@ export default function AdminEventDetailPage() {
 
   return (
     <main className="max-w-lg mx-auto px-4 py-8 space-y-6">
-      {/* 戻るリンク */}
-      <Link href="/admin" className="text-sm text-muted-foreground hover:underline">
+      {/* 戻るリンク（archivedならアーカイブ一覧へ） */}
+      <Link
+        href={event.status === 'archived' ? '/admin?archive=1' : '/admin'}
+        className="text-sm text-muted-foreground hover:underline"
+      >
         ← イベント管理へ戻る
       </Link>
 
@@ -238,14 +241,16 @@ export default function AdminEventDetailPage() {
                         <span className="text-muted-foreground mr-2">{p.slot_number}.</span>
                         {p.name}
                       </span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-xs text-destructive h-7 px-2"
-                        onClick={() => adminCancel(p.id, p.name)}
-                      >
-                        強制キャンセル
-                      </Button>
+                      {event.status !== 'archived' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs text-destructive h-7 px-2"
+                          onClick={() => adminCancel(p.id, p.name)}
+                        >
+                          強制キャンセル
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -264,14 +269,16 @@ export default function AdminEventDetailPage() {
                         <span className="mr-2">待{p.slot_number}.</span>
                         {p.name}
                       </span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-xs text-destructive h-7 px-2"
-                        onClick={() => adminCancel(p.id, p.name)}
-                      >
-                        取消
-                      </Button>
+                      {event.status !== 'archived' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs text-destructive h-7 px-2"
+                          onClick={() => adminCancel(p.id, p.name)}
+                        >
+                          取消
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>

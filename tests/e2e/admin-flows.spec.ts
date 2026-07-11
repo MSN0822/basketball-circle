@@ -265,6 +265,85 @@ test.describe('admin-flows E2E', () => {
     await screenshot(page, 'gap02-after-force-cancel.png')
   })
 
+  test('[GAP-16] force-cancel/cancel buttons are hidden for archived events', async ({ page, context }) => {
+    const archivedParticipantName = `${runId} Archived Participant`
+    const archivedEvent = await createAdminEvent(baseURL, adminCookieHeader, 'ARCHIVED_EVENT')
+    const { error: updateError } = await supabaseAdmin
+      .from('events')
+      .update({ status: 'archived' })
+      .eq('id', archivedEvent.id)
+    expect(updateError).toBeNull()
+    const { error: insertError } = await supabaseAdmin.from('participants').insert({
+      event_id: archivedEvent.id,
+      name: archivedParticipantName,
+      user_code: `${runId}-archived-participant`,
+      status: 'active',
+      slot_number: 1,
+      member_id: null,
+    })
+    expect(insertError).toBeNull()
+
+    await injectAdminCookie(context)
+    await page.goto(`/admin/events/${archivedEvent.id}`)
+    // 参加者記録自体は表示されるが、操作ボタンは表示されないことを確認する。
+    await expect(page.getByText(archivedParticipantName)).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('button', { name: '強制キャンセル' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '取消' })).toHaveCount(0)
+    await screenshot(page, 'gap16-archived-no-cancel-buttons.png')
+  })
+
+  test('[GAP-17] back link from an archived event returns to the archive list', async ({ page, context }) => {
+    const archivedEvent = await createAdminEvent(baseURL, adminCookieHeader, 'ARCHIVED_BACKLINK')
+    const { error: updateError } = await supabaseAdmin
+      .from('events')
+      .update({ status: 'archived' })
+      .eq('id', archivedEvent.id)
+    expect(updateError).toBeNull()
+
+    await injectAdminCookie(context)
+    await page.goto(`/admin/events/${archivedEvent.id}`)
+    const backLink = page.getByRole('link', { name: /イベント管理へ戻る/ })
+    await expect(backLink).toHaveAttribute('href', '/admin?archive=1')
+
+    await backLink.click()
+    await expect(page).toHaveURL(/\/admin\?archive=1/)
+    await expect(page.getByRole('button', { name: '通常一覧' })).toBeVisible()
+    await expect(page.getByText(archivedEvent.title)).toBeVisible({ timeout: 10_000 })
+    await screenshot(page, 'gap17-archive-backlink.png')
+  })
+
+  test('[GAP-18] admin force-cancel API rejects archived events even when called directly', async () => {
+    const archivedEvent = await createAdminEvent(baseURL, adminCookieHeader, 'ARCHIVED_API_REJECT')
+    const { error: updateError } = await supabaseAdmin
+      .from('events')
+      .update({ status: 'archived' })
+      .eq('id', archivedEvent.id)
+    expect(updateError).toBeNull()
+
+    const participantName = `${runId} Archived API Target`
+    const { data: participant, error: insertError } = await supabaseAdmin
+      .from('participants')
+      .insert({
+        event_id: archivedEvent.id,
+        name: participantName,
+        user_code: `${runId}-archived-api-target`,
+        status: 'active',
+        slot_number: 1,
+        member_id: null,
+      })
+      .select('id')
+      .single()
+    expect(insertError).toBeNull()
+
+    // 画面上のボタンだけでなく、APIを直接叩いても拒否されることを確認する（UI/API整合性の担保）。
+    const res = await appJson(baseURL, '/api/cancel', {
+      method: 'POST',
+      headers: { Cookie: adminCookieHeader },
+      body: JSON.stringify({ participant_id: participant!.id, admin: true }),
+    })
+    expect(res.status).toBe(409)
+  })
+
   test('[GAP-11] admin delete failure shows error toast', async ({ page, context }) => {
     await injectAdminCookie(context)
     await page.route('**/api/admin/events', async route => {

@@ -16,7 +16,7 @@ type ParticipantInput = {
 async function loadRoute(options: {
   participant?: ParticipantInput | null
   participantError?: { message: string; code?: string } | null
-  event?: { status: 'accepting' | 'closed' | 'draft'; publishes_at: string | null } | null
+  event?: { status: 'accepting' | 'closed' | 'draft' | 'archived'; publishes_at: string | null } | null
   bearerToken?: string | null
   authMemberId?: string | null
   authStatus?: number
@@ -186,6 +186,34 @@ describe('POST /api/cancel', () => {
 
     expect(res.status).toBe(403)
     expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('rejects admin cancellation for archived events', async () => {
+    const { POST, supabase } = await loadRoute({
+      participant: { id: PARTICIPANT_ID, member_id: null, user_code: '12345', status: 'active' },
+      event: { status: 'archived', publishes_at: null },
+      adminOk: true,
+    })
+
+    const res = await POST(jsonRequest({ participant_id: PARTICIPANT_ID, admin: true }))
+    const body = await responseJson(res)
+
+    expect(res.status).toBe(409)
+    expect(String(body.error)).toBeTruthy()
+    expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('allows admin cancellation for non-archived events', async () => {
+    const { POST, supabase } = await loadRoute({
+      participant: { id: PARTICIPANT_ID, member_id: null, user_code: '12345', status: 'active' },
+      event: { status: 'closed', publishes_at: null },
+      adminOk: true,
+    })
+
+    const res = await POST(jsonRequest({ participant_id: PARTICIPANT_ID, admin: true }))
+
+    expect(res.status).toBe(200)
+    expect(supabase.spies.mockRpc).toHaveBeenCalledWith('cancel_participant', { p_participant_id: PARTICIPANT_ID })
   })
 
   it('does not cancel a participant that is already cancelled', async () => {

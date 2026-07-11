@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useCallback, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { Event } from '@/lib/supabase'
 import { adminLoginErrorMessage } from '@/lib/admin-login-error'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -42,8 +42,9 @@ function formatEventDateRange(startStr: string, endStr: string | null): string {
   return `${startText} - ${endText}`
 }
 
-export default function AdminPage() {
+function AdminPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [password, setPassword] = useState('')
   const [authed, setAuthed] = useState(false)
   const [authError, setAuthError] = useState('')
@@ -52,7 +53,20 @@ export default function AdminPage() {
     archived: [],
   })
   const [eventsLoading, setEventsLoading] = useState(false)
-  const [showArchive, setShowArchive] = useState(false)
+  const [showArchive, setShowArchive] = useState(() => searchParams.get('archive') === '1')
+
+  function toggleArchive() {
+    const next = !showArchive
+    setShowArchive(next)
+    const params = new URLSearchParams(searchParams.toString())
+    if (next) {
+      params.set('archive', '1')
+    } else {
+      params.delete('archive')
+    }
+    const query = params.toString()
+    router.replace(query ? `/admin?${query}` : '/admin')
+  }
 
   const loadEvents = useCallback(async () => {
     setEventsLoading(true)
@@ -140,7 +154,7 @@ export default function AdminPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">管理者ページ</h1>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => setShowArchive(value => !value)}>
+          <Button size="sm" variant="outline" onClick={toggleArchive}>
             {showArchive ? '通常一覧' : 'アーカイブ'}
           </Button>
           <Link href="/admin/create">
@@ -219,5 +233,13 @@ export default function AdminPage() {
         ))}
       </div>
     </main>
+  )
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminPageContent />
+    </Suspense>
   )
 }

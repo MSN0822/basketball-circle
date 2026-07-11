@@ -61,6 +61,10 @@ export async function POST(req: NextRequest) {
     if (!checkAdmin(req)) {
       return NextResponse.json({ error: '管理者認証に失敗しました' }, { status: 403 })
     }
+    // アーカイブ済みイベントは操作対象外（管理画面UIも同様にボタンを非表示にしている）。
+    if (event?.status === 'archived') {
+      return NextResponse.json({ error: 'アーカイブ済みのイベントは操作できません' }, { status: 409 })
+    }
   } else if (getBearerToken(req)) {
     if (!event || !isVisibleToMembers(event)) {
       return NextResponse.json({ error: '参加者が見つかりません' }, { status: 404 })
