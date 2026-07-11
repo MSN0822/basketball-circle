@@ -2,6 +2,7 @@
 
 > basketball-circle 固有のタスク管理ファイル（2026-07-02 新設）。
 > ワークスペース横断タスク（AI OS 全体）は `30_vault/07_QUEUE/queue.md` / `continuing-ledger.md` 側。**03 固有のタスクはここ**。
+> **HANDOFF不使用宣言（2026-07-11）**: セッション間の引き継ぎは本ファイル＋`SPEC.md`で代替し、`HANDOFF.md`は作成しない。D3プロジェクト健全性走査（`project-inventory-check.ps1`）の標準ファイル欠落検出（A3）の対象から除外する。
 
 各行フォーマット: `- [status: open|approval-needed|done] [種別: …] [初出: YYYY-MM-DD] [更新: YYYY-MM-DD] 内容`
 
