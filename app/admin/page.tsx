@@ -151,9 +151,9 @@ function AdminPageContent() {
 
   return (
     <main className="max-w-lg mx-auto px-4 py-8 space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="space-y-3">
         <h1 className="text-xl font-bold">{showArchive ? 'アーカイブイベント一覧' : '進行中イベント一覧'}</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={toggleArchive}>
             {showArchive ? '通常一覧' : 'アーカイブ'}
           </Button>
