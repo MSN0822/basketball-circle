@@ -13,6 +13,9 @@ export function resolveEventTimes(event: CalendarEventFields): { start: Date; en
   const end = event.event_end_date
     ? new Date(event.event_end_date)
     : new Date(start.getTime() + DEFAULT_EVENT_DURATION_HOURS * 60 * 60 * 1000)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    throw new Error('不正な日付です')
+  }
   return { start, end }
 }
 

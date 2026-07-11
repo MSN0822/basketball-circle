@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 type QueryResult = {
   data: unknown
@@ -82,6 +83,8 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
   const mockRpc = vi.fn().mockResolvedValue(rpcResult)
 
   return {
+    // 実体はモックオブジェクトだが、lib関数へ直接渡す呼び出し側で
+    // `SupabaseClient` として型チェックを通すため、ここで明示的にキャストする。
     client: {
       from: mockFrom,
       rpc: mockRpc,
@@ -90,7 +93,7 @@ export function mockSupabaseFrom(config: MockSupabaseConfig = {}) {
           deleteUser: vi.fn().mockResolvedValue({ error: null }),
         },
       },
-    },
+    } as unknown as SupabaseClient,
     spies: {
       mockFrom,
       mockRpc,

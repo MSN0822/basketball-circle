@@ -204,12 +204,12 @@ publishes_at を経由しない自動昇格の専用エンドポイント /api/c
 
 - 根拠: `app/api/admin/events/route.ts:328-334`
 
-### EVT-11 — ❓ 要確認
+### EVT-11 — ✅ 確認済み（2026-07-11 まっすん確認）
 
-管理者向けPATCH API自体はイベントのステータスを accepting・closed・draft・archived の4値のいずれにも自由に変更できる（archived への変更や archived からの変更も値としてはAPI上拒否されない）。ただし管理画面UIの状態切替ボタン（handleToggleStatus）は draft→accepting、accepting→closed、closed→accepting の3パターンのみを発行し、event.status が archived の場合は早期リターンして何もしない。つまりUI操作からは archived への手動移行も archived からの手動復帰もできず、そのAPI許容範囲はUIでは導線化されていない。
+管理者向けPATCH APIは、イベントが既に archived の場合は編集・状態変更のリクエストを409エラーで拒否する（ADM-12 / ADM-23参照）。一方、archived **への** 変更（accepting/closed/draft → archived への手動切替）はAPI上は引き続き許容されており拒否されない。管理画面UIの状態切替ボタン（handleToggleStatus）は draft→accepting、accepting→closed、closed→accepting の3パターンのみを発行し、archived への切替ボタン自体がUIに存在しないため、実質的に archived 化は日次cron（EVT-12）経由でのみ行われる。
 
-- 根拠: `app/api/admin/events/route.ts:9,279-281,330-336, app/admin/events/[id]/page.tsx:90-98`
-- ❓ 確認ポイント: 運営ドキュメント（docs/operations-spec.md）は『下書き→公開、受付中→締切、締切→受付中』のトグル操作のみを想定した説明になっており、実際のUIコンポーネントもarchived状態のイベントに対しては操作ボタンを無効化(早期return)している。API単体としてはarchivedへの手動切替が可能な状態が『意図した安全策（UIで隠すことで誤操作を防ぐ）』か、それとも『本来APIでも拒否すべきだが未実装』かをオーナーに確認したい。
+- 根拠: `app/api/admin/events/route.ts:279-282, app/admin/events/[id]/page.tsx:90-98,205-224`
+- 確認結果: 「archivedからの変更を拒否する」実装（2026-07-11対応）が正であり、旧記述（拒否されない）は陳腐化していたため更新。「archivedへの変更」を許容する非対称な仕様は意図的な現状として維持する。
 
 ### EVT-12 — ⬜ 未確認
 
@@ -703,12 +703,12 @@ cleanupジョブは最終アクセス日時（last_accessed_at）が365日以上
 - 根拠: `app/api/cron/cleanup/route.ts:96-119`
 - ❓ 確認ポイント: 自動修復なしで孤児化したAuthユーザーが放置される設計。運用上、定期的にログを確認して手動削除する運用フローが必要だが、それを検知・実施する仕組みが用意されていない。オーナーが許容できるトレードオフか確認要。
 
-### CRON-06 — ❓ 要確認
+### CRON-06 — ✅ 確認済み（2026-07-11 対応）
 
-休眠会員の検出・削除は1回のcron実行あたり最大100件（CLEANUP_BATCH_SIZE）までしか処理しない（.limit(100)で取得件数自体を制限しており、cleanupのイベントアーカイブのようなバッチ分割ループはない）。365日超の休眠会員が100件を超えて滞留している場合、超過分は翌日以降のcron実行に持ち越される。
+休眠会員の検出・削除は、取得件数を絞る `.limit()` を廃止し、`last_accessed_at` 昇順で全件取得したうえで `CLEANUP_BATCH_SIZE`（100件）単位のバッチ分割ループで処理する。イベントアーカイブ側の既存バッチループと同じ方式に揃えたため、365日超の休眠会員が100件を超えて滞留していても同一cron実行内で全件処理され、翌日以降への持ち越しは発生しない。
 
-- 根拠: `app/api/cron/cleanup/route.ts:5,68-72`
-- ❓ 確認ポイント: イベントアーカイブは全件をバッチ処理するのに対し、休眠会員削除は1日100件が上限で全件処理を保証しない非対称な実装。休眠会員が急増した場合に削除が追いつかない可能性があり、意図した仕様か確認要。
+- 根拠: `app/api/cron/cleanup/route.ts:5,67-124`
+- 確認結果: 旧記述（1日100件上限・超過分は翌日持ち越し）はこの対応により陳腐化していたため更新。イベントアーカイブとの非対称性を解消し、全件バッチ処理に統一する実装が正。
 
 ### CRON-07 — ⬜ 未確認
 

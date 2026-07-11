@@ -1,7 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import { effectiveEventStatus, isVisibleToMembers } from '@/lib/event-visibility'
+import { effectiveEventStatus, isVisibleToMembers, withEffectiveEventStatus } from '@/lib/event-visibility'
 
 describe('event visibility helpers', () => {
+  it('shows accepting events to members', () => {
+    const event = { status: 'accepting' as const, publishes_at: null }
+
+    expect(isVisibleToMembers(event)).toBe(true)
+    expect(effectiveEventStatus(event)).toBe('accepting')
+  })
+
+  it('shows closed events to members', () => {
+    const event = { status: 'closed' as const, publishes_at: null }
+
+    expect(isVisibleToMembers(event)).toBe(true)
+    expect(effectiveEventStatus(event)).toBe('closed')
+  })
+
+  it('passes the status through unchanged via withEffectiveEventStatus', () => {
+    const event = { id: 'evt-1', status: 'accepting' as const, publishes_at: null }
+
+    expect(withEffectiveEventStatus(event)).toEqual(event)
+  })
+
   it('keeps future drafts hidden from members', () => {
     const event = { status: 'draft' as const, publishes_at: '2026-06-09T00:00:00.000Z' }
 

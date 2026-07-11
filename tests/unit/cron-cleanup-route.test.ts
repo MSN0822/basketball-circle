@@ -11,7 +11,7 @@ type BodyMockConfig = {
   eventsFetchError?: QueryError
   // events update (.from('events').update(...).in('id', batch))
   eventsUpdateError?: QueryError
-  // members select (.from('members').select('id,auth_user_id').lt(...).limit(...))
+  // members select (.from('members').select('id,auth_user_id').lt(...).order(...))
   dormantMembers?: DormantMemberRow[]
   dormantFetchError?: QueryError
   // participants update (.from('participants').update({member_id:null}).eq(...))
@@ -41,9 +41,9 @@ function buildSupabase(config: BodyMockConfig) {
   const eventsUpdateIn = vi.fn().mockResolvedValue({ error: config.eventsUpdateError ?? null })
   const eventsUpdate = vi.fn().mockReturnValue({ in: eventsUpdateIn })
 
-  // --- members select chain: select -> lt -> limit (awaited) ---
-  const membersSelectLimit = vi.fn().mockResolvedValue(dormantMembersResult)
-  const membersSelectLt = vi.fn().mockReturnValue({ limit: membersSelectLimit })
+  // --- members select chain: select -> lt -> order (awaited) ---
+  const membersSelectOrder = vi.fn().mockResolvedValue(dormantMembersResult)
+  const membersSelectLt = vi.fn().mockReturnValue({ order: membersSelectOrder })
   const membersSelect = vi.fn().mockReturnValue({ lt: membersSelectLt })
 
   // --- members delete chain: delete -> eq (awaited) ---
@@ -81,7 +81,7 @@ function buildSupabase(config: BodyMockConfig) {
       eventsUpdateIn,
       membersSelect,
       membersSelectLt,
-      membersSelectLimit,
+      membersSelectOrder,
       membersDelete,
       membersDeleteEq,
       participantsUpdate,
@@ -369,6 +369,30 @@ describe('GET /api/cron/cleanup', () => {
       expect(supabase.spies.membersDeleteEq).toHaveBeenCalledTimes(3)
       // Only members with an auth_user_id trigger auth deletion (m1, m3).
       expect(supabase.spies.deleteUser).toHaveBeenCalledTimes(2)
+      expect(body.authDeleteErrors).toEqual([])
+    })
+
+    it('processes every dormant member across multiple batches, not just the first 100', async () => {
+      const dormantMembers = Array.from({ length: 250 }, (_, i) => ({
+        id: `member-${i}`,
+        auth_user_id: `auth-${i}`,
+      }))
+      const { GET, supabase } = await loadRoute({
+        safeCompareOk: true,
+        body: { dormantMembers },
+      })
+
+      const res = await GET(authorizedRequest())
+      const body = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(body.deletedMembers).toBe(250)
+      // No .limit() call caps the fetch; ordering is used instead.
+      expect(supabase.spies.membersSelectOrder).toHaveBeenCalledWith('last_accessed_at', { ascending: true })
+      // All 250 members go through per-member participant nullify / delete, batching only affects looping.
+      expect(supabase.spies.participantsUpdateEq).toHaveBeenCalledTimes(250)
+      expect(supabase.spies.membersDeleteEq).toHaveBeenCalledTimes(250)
+      expect(supabase.spies.deleteUser).toHaveBeenCalledTimes(250)
       expect(body.authDeleteErrors).toEqual([])
     })
   })

@@ -33,10 +33,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'イベントが見つかりません' }, { status: 404 })
   }
 
-  const ics = buildEventIcs(event, {
-    siteEventUrl: new URL(`/events/${id}`, req.nextUrl.origin).toString(),
-    uidHost: req.nextUrl.hostname,
-  })
+  let ics: string
+  try {
+    ics = buildEventIcs(event, {
+      siteEventUrl: new URL(`/events/${id}`, req.nextUrl.origin).toString(),
+      uidHost: req.nextUrl.hostname,
+    })
+  } catch (icsError) {
+    const message = icsError instanceof Error ? icsError.message : 'カレンダーの生成に失敗しました'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 
   return new NextResponse(ics, {
     status: 200,

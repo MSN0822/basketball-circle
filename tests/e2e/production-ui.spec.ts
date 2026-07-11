@@ -270,4 +270,46 @@ test.describe('production UI smoke', () => {
     const body = await res.text()
     expect(body).toContain('BEGIN:VCALENDAR')
   })
+
+  test('authenticated member can log out and lose access to protected pages', async ({ page }) => {
+    test.skip(!qaAuthEmail || !qaAuthPassword, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD for authenticated logout UI coverage.')
+
+    await page.goto('/login')
+    await page.locator('input[type="email"]').fill(qaAuthEmail)
+    await page.locator('input[type="password"]').fill(qaAuthPassword)
+    await page.locator('button').last().click()
+    await page.waitForURL(url => !url.pathname.includes('/login'), { timeout: 15_000 })
+
+    // ログアウトボタンはトップページ（/）のヘッダー（components/MemberHeader.tsx）にのみ存在する。
+    await page.goto('/')
+    await expect(page.getByRole('button', { name: 'ログアウト' })).toBeVisible()
+    await screenshot(page, '12-member-header-before-logout.png')
+
+    await page.getByRole('button', { name: 'ログアウト' }).click()
+    // setMember(null) による「ログイン / 登録」表示への切り替えと、router.refresh() 経由の
+    // proxy.ts による /login リダイレクトのどちらが先に観測されるかは環境依存のため、
+    // 中間状態ではなく最終的なリダイレクト結果を確認する（2026-07-11 実行時にリダイレクトの方が
+    // 先に完了しフレーキーになったため、当初の中間表示アサーションから変更）。
+    await page.waitForURL(/\/login/, { timeout: 10_000 })
+    await screenshot(page, '13-member-header-after-logout.png')
+
+    await page.goto('/')
+    await expect(page).toHaveURL(/\/login/)
+    await screenshot(page, '14-root-redirect-after-logout.png')
+
+    await page.goto(`/events/${eventId}`)
+    await expect(page).toHaveURL(/\/login/)
+    await screenshot(page, '15-event-detail-redirect-after-logout.png')
+  })
+
+  test('security headers configured in next.config.ts are present on responses', async ({ request }) => {
+    const res = await request.get(`${baseURL}/`)
+    expect(res.status()).toBe(200)
+
+    const headers = res.headers()
+    expect(headers['x-frame-options']).toBe('DENY')
+    expect(headers['x-content-type-options']).toBe('nosniff')
+    expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin')
+    expect(headers['content-security-policy']).toContain("frame-ancestors 'none'")
+  })
 })

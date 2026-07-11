@@ -49,6 +49,18 @@ describe('/api/admin/verify', () => {
     expect(mocks.recordFailure).not.toHaveBeenCalled()
   })
 
+  it('prefers x-real-ip over x-forwarded-for when both headers are present', async () => {
+    const { POST, mocks } = await loadRoute({ locked: true, passwordOk: true })
+
+    const res = await POST(jsonRequest({ password: 'correct-password' }, {
+      headers: { 'x-real-ip': '198.51.100.50', 'x-forwarded-for': '203.0.113.10, 198.51.100.1' },
+    }))
+
+    expect(res.status).toBe(429)
+    expect(mocks.isLocked).toHaveBeenCalledWith('ip:198.51.100.50')
+    expect(mocks.isLocked).not.toHaveBeenCalledWith('ip:198.51.100.1')
+  })
+
   it('sets an HttpOnly Strict admin cookie and clears failures on success', async () => {
     const { POST, mocks } = await loadRoute({ passwordOk: true, token: 'signed-token' })
 
@@ -90,6 +102,19 @@ describe('/api/admin/verify', () => {
     expect(res.status).toBe(400)
     expect(body.error).toBe('password は必須です')
     expect(mocks.recordFailure).toHaveBeenCalledWith('ip:198.51.100.30')
+    expect(mocks.recordFailure).toHaveBeenCalledWith('global:admin-login')
+    expect(mocks.safeCompare).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 and records a failure when password is missing from a valid JSON body', async () => {
+    const { POST, mocks } = await loadRoute({ passwordOk: false })
+
+    const res = await POST(jsonRequest({}, { headers: { 'x-real-ip': '198.51.100.40' } }))
+    const body = await responseJson<{ error?: string }>(res)
+
+    expect(res.status).toBe(400)
+    expect(body.error).toBe('password は必須です')
+    expect(mocks.recordFailure).toHaveBeenCalledWith('ip:198.51.100.40')
     expect(mocks.recordFailure).toHaveBeenCalledWith('global:admin-login')
     expect(mocks.safeCompare).not.toHaveBeenCalled()
   })

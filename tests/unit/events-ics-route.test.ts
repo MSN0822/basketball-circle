@@ -130,4 +130,14 @@ describe('GET /api/events/[id]/ics', () => {
     expect(res.status).toBe(200)
     expect(body).toContain('BEGIN:VCALENDAR')
   })
+
+  it('returns 500 with a JSON error when the event has an invalid date', async () => {
+    const { GET } = await loadRoute({ event: defaultEvent({ event_date: 'not-a-date' }) })
+
+    const res = await GET(requestFor(EVENT_ID), { params: Promise.resolve({ id: EVENT_ID }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(body.error).toBe('不正な日付です')
+  })
 })

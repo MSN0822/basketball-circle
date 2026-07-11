@@ -31,6 +31,19 @@ describe('foldIcsLine', () => {
     expect(foldIcsLine(line)).toBe(line)
   })
 
+  it('does not fold a line at exactly 75 octets', () => {
+    const line = `SUMMARY:${'x'.repeat(75 - 'SUMMARY:'.length)}`
+    expect(Buffer.byteLength(line, 'utf8')).toBe(75)
+    expect(foldIcsLine(line)).toBe(line)
+  })
+
+  it('folds a line at exactly 76 octets', () => {
+    const line = `SUMMARY:${'x'.repeat(76 - 'SUMMARY:'.length)}`
+    expect(Buffer.byteLength(line, 'utf8')).toBe(76)
+    expect(foldIcsLine(line)).not.toBe(line)
+    expect(foldIcsLine(line)).toContain('\r\n')
+  })
+
   it('folds lines longer than 75 octets with CRLF + single space continuation', () => {
     const longValue = 'x'.repeat(100)
     const folded = foldIcsLine(`SUMMARY:${longValue}`)
@@ -63,6 +76,23 @@ describe('foldIcsLine', () => {
     }
 
     // 全セグメントを結合し直すと、元の文字列（エスケープなしなので変化なし）に一致する
+    const rejoined = folded.replace(/\r\n /g, '')
+    expect(Buffer.from(rejoined, 'utf8').toString('utf8')).toBe(line)
+  })
+
+  it('does not split 4-byte UTF-8 characters (emoji) across a fold boundary', () => {
+    // 絵文字はUTF-8で4バイト（サロゲートペア）。継続バイト境界の判定漏れがあると文字化けする。
+    const longEmoji = '🏀'.repeat(30) // 120 bytes
+    const line = `SUMMARY:${longEmoji}`
+    const folded = foldIcsLine(line)
+
+    const segments = folded.split('\r\n')
+    for (const segment of segments) {
+      const withoutLeadingSpace = segment.startsWith(' ') ? segment.slice(1) : segment
+      const roundTripped = Buffer.from(withoutLeadingSpace, 'utf8').toString('utf8')
+      expect(roundTripped).not.toContain('�')
+    }
+
     const rejoined = folded.replace(/\r\n /g, '')
     expect(Buffer.from(rejoined, 'utf8').toString('utf8')).toBe(line)
   })
@@ -129,5 +159,28 @@ describe('buildEventIcs', () => {
     expect(unfolded).toContain('DESCRIPTION:')
     expect(unfolded).toContain('example.com/events/1')
     expect(unfolded).toContain('削除')
+  })
+
+  it('always includes SEQUENCE:0', () => {
+    const ics = buildEventIcs(baseEvent, { now, siteEventUrl: 'https://example.com/events/1', uidHost: 'example.com' })
+
+    expect(ics).toContain('SEQUENCE:0')
+  })
+
+  it('produces an identical UID line across repeated calls for the same event id and uidHost', () => {
+    const first = buildEventIcs(baseEvent, { now, siteEventUrl: 'https://example.com/events/1', uidHost: 'example.com' })
+    const second = buildEventIcs(baseEvent, { now, siteEventUrl: 'https://example.com/events/1', uidHost: 'example.com' })
+
+    const extractUid = (ics: string) => ics.split('\r\n').find((line) => line.startsWith('UID:'))
+    expect(extractUid(first)).toBe(extractUid(second))
+  })
+
+  it('throws when the event has an invalid date', () => {
+    expect(() =>
+      buildEventIcs(
+        { ...baseEvent, event_date: 'not-a-date' },
+        { now, siteEventUrl: 'https://example.com/events/1', uidHost: 'example.com' }
+      )
+    ).toThrow('不正な日付です')
   })
 })

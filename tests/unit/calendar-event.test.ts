@@ -22,6 +22,28 @@ describe('resolveEventTimes', () => {
     expect(end.getTime() - start.getTime()).toBe(DEFAULT_EVENT_DURATION_HOURS * 60 * 60 * 1000)
     expect(end.toISOString()).toBe('2026-08-01T12:00:00.000Z')
   })
+
+  it('correctly converts offset-form ISO strings (e.g. +09:00) to UTC', () => {
+    const { start, end } = resolveEventTimes({
+      event_date: '2026-08-01T19:00:00+09:00',
+      event_end_date: '2026-08-01T21:00:00+09:00',
+    })
+
+    expect(start.toISOString()).toBe('2026-08-01T10:00:00.000Z')
+    expect(end.toISOString()).toBe('2026-08-01T12:00:00.000Z')
+  })
+
+  it('throws when event_date is an invalid date', () => {
+    expect(() =>
+      resolveEventTimes({ event_date: 'not-a-date', event_end_date: null })
+    ).toThrow('不正な日付です')
+  })
+
+  it('throws when event_end_date is an invalid date', () => {
+    expect(() =>
+      resolveEventTimes({ event_date: '2026-08-01T10:00:00.000Z', event_end_date: 'not-a-date' })
+    ).toThrow('不正な日付です')
+  })
 })
 
 describe('buildGoogleCalendarUrl', () => {
@@ -93,5 +115,14 @@ describe('buildGoogleCalendarUrl', () => {
     const url = new URL(buildGoogleCalendarUrl(baseEvent, { siteEventUrl: 'https://example.com/events/1' }))
 
     expect(url.searchParams.get('location')).toBe('体育館')
+  })
+
+  it('throws when event_date is an invalid date', () => {
+    expect(() =>
+      buildGoogleCalendarUrl(
+        { ...baseEvent, event_date: 'not-a-date' },
+        { siteEventUrl: 'https://example.com/events/1' }
+      )
+    ).toThrow('不正な日付です')
   })
 })

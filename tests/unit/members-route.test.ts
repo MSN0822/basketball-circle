@@ -82,6 +82,16 @@ describe('POST /api/members', () => {
     })
   })
 
+  it('returns 401 for an unauthenticated request with an otherwise valid body', async () => {
+    const { POST, supabase, mocks } = await loadRoute({ userId: null })
+
+    const res = await POST(jsonRequest({ name: 'Member A', auth_user_id: AUTH_USER_ID }))
+
+    expect(res.status).toBe(401)
+    expect(mocks.getBearerUser).toHaveBeenCalled()
+    expect(supabase.spies.mockRpc).not.toHaveBeenCalled()
+  })
+
   it('rejects bearer users that do not match auth_user_id', async () => {
     const { POST, supabase } = await loadRoute({ userId: OTHER_AUTH_USER_ID })
 

@@ -13,7 +13,13 @@ interface Props {
 }
 
 export default function CalendarLinks({ event, siteEventUrl }: Props) {
-  const googleUrl = buildGoogleCalendarUrl(event, { siteEventUrl })
+  let googleUrl: string
+  try {
+    googleUrl = buildGoogleCalendarUrl(event, { siteEventUrl })
+  } catch {
+    // 不正な日付のイベントではカレンダーリンクブロック自体を非表示にする
+    return null
+  }
   const icsUrl = `/api/events/${event.id}/ics`
   // タップ領域を広げ押し間違いを減らすため、テキストリンクではなくボタン風の横並びにする（2026-07-11 まっすんフィードバック対応）。
   const linkClass = cn(buttonVariants({ variant: 'outline', size: 'default' }), 'flex-1')

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type BrowserContext, type Page } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -111,6 +111,36 @@ async function loginQaUser(page: Page, email: string, password: string) {
   await page.waitForURL(url => !url.pathname.includes('/login'), { timeout: 15_000 })
 }
 
+async function injectAdminCookie(context: BrowserContext, cookieHeader: string, url: string) {
+  const token = cookieHeader.slice(cookieHeader.indexOf('=') + 1)
+  await context.addCookies([{
+    name: ADMIN_SESSION_COOKIE,
+    value: token,
+    url,
+    httpOnly: true,
+    secure: url.startsWith('https'),
+    sameSite: 'Strict',
+  }])
+}
+
+async function insertActiveParticipants(
+  supabase: SupabaseClient,
+  eventId: string,
+  entries: { name: string; slot: number; userCode: string }[]
+) {
+  const { error } = await supabase.from('participants').insert(
+    entries.map(entry => ({
+      event_id: eventId,
+      name: entry.name,
+      user_code: entry.userCode,
+      status: 'active',
+      slot_number: entry.slot,
+      member_id: null,
+    }))
+  )
+  expect(error).toBeNull()
+}
+
 test.describe.configure({ mode: 'serial' })
 
 test.describe('user-flows E2E', () => {
@@ -123,6 +153,8 @@ test.describe('user-flows E2E', () => {
   let testEventId = ''
   let testEventTitle = ''
   let closedEventId = ''
+  let capacityEventId = ''
+  let capacityEventTitle = ''
   let qaMember: MemberRow | null = null
   let originalMemberName = ''
   let supabaseAdmin: SupabaseClient
@@ -258,6 +290,8 @@ test.describe('user-flows E2E', () => {
 
     await expect(page.locator('main')).toContainText('臨時ID', { timeout: 10_000 })
     await expect(page.locator('main')).toContainText(guestName)
+    // 本人は参加していない状態なので、Googleカレンダーへのリンクは表示されない仕様。
+    await expect(page.getByRole('link', { name: /Google/ })).toHaveCount(0)
     await screenshot(page, 'gap01-after-guest-add.png')
 
     await page.getByRole('button', { name: '取消' }).first().click()
@@ -306,5 +340,421 @@ test.describe('user-flows E2E', () => {
 
     await expect(page.locator('main')).toContainText(nickname, { timeout: 10_000 })
     await screenshot(page, 'gap13-after-nickname-save.png')
+  })
+
+  test('[定員E2E-1] event auto-closes and shows the closed badge once it fills up', async ({ page }) => {
+    test.skip(!qaReady, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD')
+
+    const capacityEvent = await createAdminEvent(baseURL, adminCookieHeader, 'CAPACITY', {
+      max_participants: 2,
+      threshold: 1,
+    })
+    capacityEventId = capacityEvent.id
+    capacityEventTitle = capacityEvent.title
+
+    await loginQaUser(page, qaEmail, qaPassword)
+    await page.goto(`/events/${capacityEventId}`)
+
+    // QA本人が1枠目に参加する
+    await page.getByRole('button', { name: '参加申請する' }).click()
+    await expect(page.locator('main')).toContainText('参加登録が完了しました。', { timeout: 10_000 })
+
+    // 友達招待でちょうど定員(2)まで埋める → join_event RPC が自動的にstatus='closed'にする
+    await page.getByRole('button', { name: '友達入力欄を追加' }).click()
+    const guestInput = page.locator('input[placeholder*="友達"]').first()
+    await guestInput.fill(`${runId} Capacity Filler`)
+    await guestInput.locator('xpath=..').getByRole('button', { name: '追加' }).click()
+    await expect(page.locator('main')).toContainText('友達を追加しました', { timeout: 10_000 })
+
+    await expect.poll(async () => {
+      const { data, error } = await supabaseAdmin
+        .from('events')
+        .select('status')
+        .eq('id', capacityEventId)
+        .single()
+      if (error) throw error
+      return data?.status
+    }, { timeout: 20_000 }).toBe('closed')
+
+    await expect(page.getByText('締め切り済み')).toBeVisible({ timeout: 15_000 })
+    await screenshot(page, 'capacity-e2e-1-detail-closed.png')
+
+    await page.goto('/')
+    const listCard = page.locator('div.cursor-pointer', { hasText: capacityEventTitle })
+    await expect(listCard.getByText('締め切り済み')).toBeVisible({ timeout: 15_000 })
+    await screenshot(page, 'capacity-e2e-1-list-closed.png')
+  })
+
+  test('[定員E2E-2] cancelling below the threshold auto-reopens with max_participants set to threshold', async ({ page }) => {
+    test.skip(!qaReady, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD')
+    test.skip(!capacityEventId, '定員E2E-1 が未実行のためスキップ')
+
+    await loginQaUser(page, qaEmail, qaPassword)
+    await page.goto(`/events/${capacityEventId}`)
+
+    // 1人目（本人）キャンセル: active 2→1。閾値(1)をまだ下回らないので締切のまま。
+    await page.getByRole('button', { name: 'キャンセル' }).click()
+    await expect(page.getByRole('dialog')).toContainText('キャンセルしてもよろしいですか', { timeout: 10_000 })
+    await page.getByRole('button', { name: 'キャンセルする' }).click()
+    await expect(page.locator('main')).toContainText('キャンセルしました。', { timeout: 10_000 })
+
+    await expect.poll(async () => {
+      const { data, error } = await supabaseAdmin
+        .from('events')
+        .select('status')
+        .eq('id', capacityEventId)
+        .single()
+      if (error) throw error
+      return data?.status
+    }, { timeout: 10_000 }).toBe('closed')
+
+    // 2人目（友達）キャンセル: active 1→0。閾値(1)を下回るので自動再開する。
+    await page.getByRole('button', { name: '取消' }).click()
+    await expect(page.locator('main')).toContainText('さんをキャンセルしました。', { timeout: 10_000 })
+
+    await expect.poll(async () => {
+      const { data, error } = await supabaseAdmin
+        .from('events')
+        .select('status,max_participants')
+        .eq('id', capacityEventId)
+        .single()
+      if (error) throw error
+      return data
+    }, { timeout: 20_000 }).toMatchObject({ status: 'accepting', max_participants: 1 })
+
+    await expect(page.getByText('申請受付中')).toBeVisible({ timeout: 15_000 })
+    await screenshot(page, 'capacity-e2e-2-reopened.png')
+  })
+
+  test('[定員E2E-3] a manually closed event does not auto-reopen when cancellations drop below threshold', async () => {
+    test.skip(!qaReady, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD')
+
+    const manualCloseEvent = await createAdminEvent(baseURL, adminCookieHeader, 'MANUAL_CLOSE', {
+      max_participants: 5,
+      threshold: 3,
+    })
+
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from('participants')
+      .insert([1, 2, 3].map(slot => ({
+        event_id: manualCloseEvent.id,
+        name: `${runId} ManualClose ${slot}`,
+        user_code: `${runId}-manual-close-${slot}`,
+        status: 'active',
+        slot_number: slot,
+        member_id: null,
+      })))
+      .select('id')
+    expect(insertError).toBeNull()
+
+    const closeRes = await appJson(baseURL, '/api/admin/events', {
+      method: 'PATCH',
+      headers: { Cookie: adminCookieHeader },
+      body: JSON.stringify({ id: manualCloseEvent.id, status: 'closed' }),
+    })
+    expect(closeRes.status).toBe(200)
+
+    const { data: beforeCancel } = await supabaseAdmin
+      .from('events')
+      .select('is_manual_close')
+      .eq('id', manualCloseEvent.id)
+      .single()
+    expect(beforeCancel?.is_manual_close).toBe(true)
+
+    // active を 3→2 に落とす（閾値3を下回るが、手動締切なので再開しないはず）
+    const cancelRes = await appJson(baseURL, '/api/cancel', {
+      method: 'POST',
+      headers: { Cookie: adminCookieHeader },
+      body: JSON.stringify({ participant_id: inserted![0].id, admin: true }),
+    })
+    expect(cancelRes.status).toBe(200)
+
+    const { data: afterCancel, error: afterError } = await supabaseAdmin
+      .from('events')
+      .select('status,is_manual_close,max_participants')
+      .eq('id', manualCloseEvent.id)
+      .single()
+    expect(afterError).toBeNull()
+    expect(afterCancel?.status).toBe('closed')
+    expect(afterCancel?.is_manual_close).toBe(true)
+    expect(afterCancel?.max_participants).toBe(5)
+  })
+
+  test('[繰上E2E-1] cancelling the first participant renumbers the remaining slots', async ({ page }) => {
+    test.skip(!qaReady, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD')
+
+    const renumberEvent = await createAdminEvent(baseURL, adminCookieHeader, 'RENUMBER', {
+      max_participants: 5,
+      threshold: 2,
+    })
+
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from('participants')
+      .insert([1, 2, 3].map(slot => ({
+        event_id: renumberEvent.id,
+        name: `${runId} Renumber ${slot}`,
+        user_code: `${runId}-renumber-${slot}`,
+        status: 'active',
+        slot_number: slot,
+        member_id: null,
+      })))
+      .select('id,slot_number')
+    expect(insertError).toBeNull()
+
+    const firstParticipant = inserted!.find(p => p.slot_number === 1)
+    const cancelRes = await appJson(baseURL, '/api/cancel', {
+      method: 'POST',
+      headers: { Cookie: adminCookieHeader },
+      body: JSON.stringify({ participant_id: firstParticipant!.id, admin: true }),
+    })
+    expect(cancelRes.status).toBe(200)
+
+    await loginQaUser(page, qaEmail, qaPassword)
+    await page.goto(`/events/${renumberEvent.id}`)
+
+    await expect(page.locator('main')).toContainText(`1.${runId} Renumber 2`, { timeout: 15_000 })
+    await expect(page.locator('main')).toContainText(`2.${runId} Renumber 3`, { timeout: 15_000 })
+    await screenshot(page, 'renumber-e2e-1-after-cancel.png')
+  })
+
+  test('[並行E2E-1] concurrent joins for the last remaining slot let exactly one request succeed', async () => {
+    test.skip(!qaReady, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD')
+
+    const raceEvent = await createAdminEvent(baseURL, adminCookieHeader, 'RACE', {
+      max_participants: 5,
+      threshold: 2,
+    })
+
+    await insertActiveParticipants(supabaseAdmin, raceEvent.id, [1, 2, 3, 4].map(slot => ({
+      name: `${runId} Race Filler ${slot}`,
+      slot,
+      userCode: `${runId}-race-filler-${slot}`,
+    })))
+
+    const attempts = await Promise.all(
+      Array.from({ length: 5 }, (_, i) => appJson(baseURL, '/api/participants', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${qaToken}` },
+        body: JSON.stringify({
+          event_id: raceEvent.id,
+          name: `${runId} Race Guest ${i}`,
+          member_id: qaMember!.id,
+          guest: true,
+        }),
+      }))
+    )
+
+    const successCount = attempts.filter(res => res.status === 200).length
+    const conflictCount = attempts.filter(res => res.status === 409).length
+    expect(successCount).toBe(1)
+    expect(conflictCount).toBe(4)
+
+    const { data: activeParticipants, error: countError } = await supabaseAdmin
+      .from('participants')
+      .select('id')
+      .eq('event_id', raceEvent.id)
+      .eq('status', 'active')
+    expect(countError).toBeNull()
+    expect(activeParticipants?.length).toBe(5)
+  })
+
+  test('[並行E2E-2] a join made in one browser context appears in another within the polling window', async ({ page, browser }) => {
+    test.skip(!qaReady, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD')
+
+    const realtimeEvent = await createAdminEvent(baseURL, adminCookieHeader, 'REALTIME')
+    const guestName = `${runId} Realtime Guest`
+
+    const secondContext = await browser.newContext()
+    const secondPage = await secondContext.newPage()
+    try {
+      await loginQaUser(secondPage, qaEmail, qaPassword)
+      await secondPage.goto(`/events/${realtimeEvent.id}`)
+      await expect(secondPage.locator('main')).not.toContainText(guestName)
+
+      await loginQaUser(page, qaEmail, qaPassword)
+      await page.goto(`/events/${realtimeEvent.id}`)
+      await page.getByRole('button', { name: '友達入力欄を追加' }).click()
+      const guestInput = page.locator('input[placeholder*="友達"]').first()
+      await guestInput.fill(guestName)
+      await guestInput.locator('xpath=..').getByRole('button', { name: '追加' }).click()
+      await expect(page.locator('main')).toContainText('友達を追加しました', { timeout: 10_000 })
+
+      await expect(secondPage.locator('main')).toContainText(guestName, { timeout: 20_000 })
+      await screenshot(secondPage, 'concurrent-e2e-2-second-context-sees-join.png')
+    } finally {
+      await secondContext.close()
+    }
+  })
+
+  test('[名前E2E-1] renaming a member propagates to the event roster', async ({ page }) => {
+    test.skip(!qaReady, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD')
+
+    const nameChangeEvent = await createAdminEvent(baseURL, adminCookieHeader, 'NAME_CHANGE')
+
+    await loginQaUser(page, qaEmail, qaPassword)
+    await page.goto(`/events/${nameChangeEvent.id}`)
+    await page.getByRole('button', { name: '参加申請する' }).click()
+    await expect(page.locator('main')).toContainText('参加登録が完了しました。', { timeout: 10_000 })
+
+    const newNickname = `NameE2E${runId.slice(-6)}`
+    await page.goto('/')
+    await expect(page.getByRole('button', { name: 'ニックネーム変更' })).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'ニックネーム変更' }).click()
+    await page.locator('input[placeholder="ニックネーム"]').fill(newNickname)
+    await page.getByRole('button', { name: '保存' }).click()
+    await expect(page.locator('main')).toContainText(newNickname, { timeout: 10_000 })
+
+    // members.name は「本名(ニックネーム)」の複合形式で保存される（components/MemberHeader.tsx:69）。
+    // participants.name も update_member_name RPC 経由で同じ複合値がセットされるため、完全一致ではなく含有で確認する。
+    await expect.poll(async () => {
+      const { data, error } = await supabaseAdmin
+        .from('participants')
+        .select('name')
+        .eq('event_id', nameChangeEvent.id)
+        .eq('status', 'active')
+        .maybeSingle()
+      if (error) throw error
+      return data?.name ?? ''
+    }, { timeout: 15_000 }).toContain(newNickname)
+
+    await page.goto(`/events/${nameChangeEvent.id}`)
+    await expect(page.locator('main')).toContainText(newNickname, { timeout: 15_000 })
+    await screenshot(page, 'name-e2e-1-roster-updated.png')
+  })
+
+  test('[draft-E2E-1] admin can see a draft event in the drafts section and publish it immediately', async ({ page, context }) => {
+    test.skip(!qaReady, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD')
+
+    const draftEvent = await createAdminEvent(baseURL, adminCookieHeader, 'DRAFT_VISIBILITY', {
+      status: 'draft',
+    })
+
+    await injectAdminCookie(context, adminCookieHeader, baseURL)
+    await page.goto('/admin')
+
+    const draftSection = page.locator('h2', { hasText: '下書き' }).locator('xpath=..')
+    await expect(draftSection).toContainText(draftEvent.title, { timeout: 10_000 })
+    await screenshot(page, 'draft-e2e-1-listed-in-drafts.png')
+
+    await page.getByText(draftEvent.title).click()
+    await expect(page).toHaveURL(new RegExp(`/admin/events/${draftEvent.id}`))
+    await expect(page.getByText('下書き')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('button', { name: '今すぐ公開' })).toBeVisible()
+
+    await page.getByRole('button', { name: '今すぐ公開' }).click()
+    await expect(page.getByRole('button', { name: '締め切る' })).toBeVisible({ timeout: 10_000 })
+    await screenshot(page, 'draft-e2e-1-published.png')
+
+    await page.goto('/admin')
+    const draftHeading = page.locator('h2', { hasText: '下書き' })
+    if (await draftHeading.count() > 0) {
+      await expect(draftHeading.locator('xpath=..')).not.toContainText(draftEvent.title)
+    }
+    await expect(page.getByText(draftEvent.title)).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('[draft-E2E-2] a due publishes_at auto-promotes a draft when a member visits the site', async ({ page }) => {
+    test.skip(!qaReady, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD')
+
+    const pastPublishAt = new Date(Date.now() - 60_000).toISOString()
+    const scheduledEvent = await createAdminEvent(baseURL, adminCookieHeader, 'DUE_PUBLISH', {
+      status: 'draft',
+      publishes_at: pastPublishAt,
+    })
+
+    const { data: beforeVisit } = await supabaseAdmin
+      .from('events')
+      .select('status')
+      .eq('id', scheduledEvent.id)
+      .single()
+    expect(beforeVisit?.status).toBe('draft')
+
+    await loginQaUser(page, qaEmail, qaPassword)
+    await page.goto('/')
+
+    await expect.poll(async () => {
+      const { data, error } = await supabaseAdmin
+        .from('events')
+        .select('status')
+        .eq('id', scheduledEvent.id)
+        .single()
+      if (error) throw error
+      return data?.status
+    }, { timeout: 10_000 }).toBe('accepting')
+
+    await expect(page.getByText(scheduledEvent.title)).toBeVisible({ timeout: 10_000 })
+    await screenshot(page, 'draft-e2e-2-auto-published.png')
+  })
+
+  test('[draft-E2E-3] visiting a draft event detail URL directly returns 404', async ({ page }) => {
+    test.skip(!qaReady, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD')
+
+    const hiddenDraft = await createAdminEvent(baseURL, adminCookieHeader, 'DRAFT_404', {
+      status: 'draft',
+    })
+
+    await loginQaUser(page, qaEmail, qaPassword)
+    const response = await page.goto(`/events/${hiddenDraft.id}`)
+    expect(response?.status()).toBe(404)
+    await screenshot(page, 'draft-e2e-3-direct-url-404.png')
+  })
+
+  test('[分岐E2E-1] a non-participant sees a disabled join button and guidance text on a closed event', async ({ page }) => {
+    test.skip(!qaReady, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD')
+
+    const closedNoJoinEvent = await createAdminEvent(baseURL, adminCookieHeader, 'CLOSED_NO_JOIN', {
+      status: 'closed',
+      max_participants: 3,
+      threshold: 2,
+    })
+
+    await loginQaUser(page, qaEmail, qaPassword)
+    await page.goto(`/events/${closedNoJoinEvent.id}`)
+
+    await expect(page.getByRole('button', { name: '参加申請する' })).toBeDisabled({ timeout: 10_000 })
+    await expect(page.locator('main')).toContainText(
+      '現在は参加申請を受け付けていません。参加済みの友達がいる場合は、この画面からキャンセルできます。'
+    )
+    await screenshot(page, 'branch-e2e-1-disabled-join.png')
+  })
+
+  test('[分岐E2E-2] joining an event twice via the API directly returns 409', async () => {
+    test.skip(!qaReady, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD')
+
+    const res = await appJson(baseURL, '/api/participants', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${qaToken}` },
+      body: JSON.stringify({
+        event_id: closedEventId,
+        name: qaMember!.name,
+        member_id: qaMember!.id,
+        guest: false,
+      }),
+    })
+    expect(res.status).toBe(409)
+  })
+
+  test('[分岐E2E-3] the guest input add button is capped at the remaining slot count', async ({ page }) => {
+    test.skip(!qaReady, 'Set QA_AUTH_EMAIL and QA_AUTH_PASSWORD')
+
+    const oneSlotLeftEvent = await createAdminEvent(baseURL, adminCookieHeader, 'ONE_SLOT_LEFT', {
+      max_participants: 3,
+      threshold: 2,
+    })
+    await insertActiveParticipants(supabaseAdmin, oneSlotLeftEvent.id, [1, 2].map(slot => ({
+      name: `${runId} OneSlot Filler ${slot}`,
+      slot,
+      userCode: `${runId}-one-slot-filler-${slot}`,
+    })))
+
+    await loginQaUser(page, qaEmail, qaPassword)
+    await page.goto(`/events/${oneSlotLeftEvent.id}`)
+
+    const addButton = page.getByRole('button', { name: '友達入力欄を追加' })
+    await expect(addButton).toBeEnabled({ timeout: 10_000 })
+    await addButton.click()
+    await expect(page.locator('input[placeholder*="友達"]')).toHaveCount(1)
+    await expect(addButton).toBeDisabled()
+    await screenshot(page, 'branch-e2e-3-guest-input-capped.png')
   })
 })
