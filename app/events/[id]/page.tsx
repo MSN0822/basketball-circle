@@ -4,6 +4,7 @@ import { getCookieMember } from '@/lib/server-member'
 import { getMyParticipationAndGuests } from '@/lib/participation-query'
 import { isVisibleToMembers, withEffectiveEventStatus } from '@/lib/event-visibility'
 import { publishDueDraftEvents } from '@/lib/event-publishing'
+import { getSiteOrigin } from '@/lib/site-origin'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ParticipantList from '@/components/ParticipantList'
@@ -70,13 +71,16 @@ function formatDateRange(startStr: string, endStr: string | null): string {
 // 'use cache' や cacheComponents をこのルートに導入しないこと。
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [event, participants, cookieMember] = await Promise.all([
+  const [event, participants, cookieMember, siteOrigin] = await Promise.all([
     getEvent(id),
     getParticipants(id),
     getCookieMember(),
+    getSiteOrigin(),
   ])
 
   if (!event) notFound()
+
+  const siteEventUrl = new URL(`/events/${id}`, siteOrigin).toString()
 
   // 申請状況をサーバ側で解決し、初回描画から正しいボタンを表示する。
   // 解決に失敗した場合は member=null としてクライアント側フォールバックに委ねる。
@@ -144,6 +148,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               initialParticipation={myParticipation}
               initialGuests={myGuests}
               initialActiveCount={active.length}
+              siteEventUrl={siteEventUrl}
             />
           </CardContent>
         </Card>

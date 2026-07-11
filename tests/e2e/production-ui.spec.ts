@@ -231,6 +231,19 @@ test.describe('production UI smoke', () => {
     await expect(page.locator('main')).toContainText(/キャンセル|参加|待機|登録/)
     await screenshot(page, '09-authenticated-event-detail-after-join.png')
 
+    const googleCalendarLink = page.getByRole('link', { name: /Google/ })
+    await expect(googleCalendarLink).toBeVisible()
+    const googleHref = await googleCalendarLink.getAttribute('href')
+    expect(googleHref).toContain('calendar.google.com/calendar/render')
+    expect(googleHref).toContain('action=TEMPLATE')
+    // details欄には絶対URL（https://...）が埋め込まれている必要がある。
+    // 相対パス（/events/xxx）だとカレンダーアプリ側でリンクとして機能しない回帰を防ぐ。
+    const googleDetails = new URL(googleHref!).searchParams.get('details') ?? ''
+    expect(googleDetails).toMatch(/詳細: https?:\/\/[^\s]+\/events\//)
+    await expect(page.getByRole('link', { name: /iOS標準カレンダー/ })).toBeVisible()
+    await expect(page.locator('main')).toContainText('本サイトからの削除・自動反映はできません')
+    await screenshot(page, '09b-authenticated-event-detail-calendar-links.png')
+
     await page.getByRole('button', { name: 'キャンセル' }).click()
     // テストイベントは max:4 / threshold:3 / accepting で作成され、参加者は本人1名のみ。
     // 閾値割れ警告（参加者数が3人を下回るまで…）は eventStatus==='closed' のときのみ表示されるため、
@@ -245,6 +258,16 @@ test.describe('production UI smoke', () => {
     await page.getByRole('button', { name: 'キャンセル' }).click()
     await page.getByRole('button', { name: 'キャンセルする' }).click()
     await expect(page.locator('main')).toContainText('キャンセルしました。')
+    await expect(page.getByRole('link', { name: /Google/ })).toHaveCount(0)
     await screenshot(page, '11-after-confirmed-cancel.png')
+  })
+
+  test('.ics calendar file is downloadable without authentication', async ({ request }) => {
+    const res = await request.get(`${baseURL}/api/events/${eventId}/ics`)
+    expect(res.status()).toBe(200)
+    expect(res.headers()['content-type']).toContain('text/calendar')
+
+    const body = await res.text()
+    expect(body).toContain('BEGIN:VCALENDAR')
   })
 })

@@ -8,6 +8,7 @@ import { getSupabase } from '@/lib/supabase-browser'
 import { withEffectiveEventStatus } from '@/lib/event-visibility'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import CalendarLinks from '@/components/CalendarLinks'
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,7 @@ interface Props {
   initialParticipation: PublicParticipant | null
   initialGuests: PublicParticipant[]
   initialActiveCount: number
+  siteEventUrl: string
 }
 
 type JoinResponse = {
@@ -71,7 +73,7 @@ async function getJsonAuthHeaders() {
   }
 }
 
-export default function JoinForm({ event, initialMember, initialParticipation, initialGuests, initialActiveCount }: Props) {
+export default function JoinForm({ event, initialMember, initialParticipation, initialGuests, initialActiveCount, siteEventUrl }: Props) {
   const [member, setMember] = useState<Member | null>(initialMember)
   const [action, setAction] = useState<'join' | 'cancel' | string | null>(null)
   const [error, setError] = useState('')
@@ -456,6 +458,10 @@ export default function JoinForm({ event, initialMember, initialParticipation, i
         <p className="text-sm text-muted-foreground">
           現在は参加申請を受け付けていません。参加済みの友達がいる場合は、この画面からキャンセルできます。
         </p>
+      )}
+
+      {participation && (
+        <CalendarLinks event={currentEvent} siteEventUrl={siteEventUrl} />
       )}
 
       <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
