@@ -41,8 +41,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   return new NextResponse(ics, {
     status: 200,
     headers: {
-      'Content-Type': 'text/calendar; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="event.ics"',
+      // iOS Safariはattachmentだと「.icsをタップしても無反応」になる既知の癖があるため、
+      // inline + method=PUBLISH でカレンダー追加プロンプトを開かせる（2026-07-11 実機不具合対応）。
+      'Content-Type': 'text/calendar; charset=utf-8; method=PUBLISH',
+      'Content-Disposition': 'inline; filename="event.ics"',
       'Cache-Control': 'no-store',
     },
   })

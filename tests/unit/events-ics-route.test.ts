@@ -114,8 +114,11 @@ describe('GET /api/events/[id]/ics', () => {
 
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toContain('text/calendar')
-    expect(res.headers.get('Content-Disposition')).toContain('attachment')
+    expect(res.headers.get('Content-Type')).toContain('method=PUBLISH')
+    // iOS Safariがattachmentだとタップ無反応になる既知の癖があるためinlineを使う（2026-07-11実機対応）。
+    expect(res.headers.get('Content-Disposition')).toContain('inline')
     expect(body).toContain('BEGIN:VCALENDAR')
+    expect(body).toContain('METHOD:PUBLISH')
   })
 
   it('returns a downloadable .ics for a closed event', async () => {

@@ -76,6 +76,7 @@ export function buildEventIcs(
     'VERSION:2.0',
     'PRODID:-//basketball-circle//JA',
     'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
     'BEGIN:VEVENT',
     buildIcsLine('UID', `${event.id}@${options.uidHost}`),
     buildIcsLine('SEQUENCE', '0'),

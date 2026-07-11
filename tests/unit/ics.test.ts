@@ -86,6 +86,8 @@ describe('buildEventIcs', () => {
     expect(ics).toContain('\r\nEND:VCALENDAR\r\n')
     expect(ics).toContain('BEGIN:VEVENT\r\n')
     expect(ics).toContain('END:VEVENT\r\n')
+    // METHOD:PUBLISHはiOS Safariでのカレンダー追加プロンプト起動に必要（2026-07-11実機不具合対応）。
+    expect(ics).toContain('METHOD:PUBLISH')
   })
 
   it('includes UID built from event id and uidHost, and DTSTAMP/SUMMARY/DTSTART/DTEND', () => {
