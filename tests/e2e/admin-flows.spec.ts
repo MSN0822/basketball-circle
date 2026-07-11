@@ -344,6 +344,47 @@ test.describe('admin-flows E2E', () => {
     expect(res.status).toBe(409)
   })
 
+  test('[GAP-19] edit and status-change buttons are hidden for archived events', async ({ page, context }) => {
+    const archivedEvent = await createAdminEvent(baseURL, adminCookieHeader, 'ARCHIVED_NO_EDIT')
+    const { error: updateError } = await supabaseAdmin
+      .from('events')
+      .update({ status: 'archived' })
+      .eq('id', archivedEvent.id)
+    expect(updateError).toBeNull()
+
+    await injectAdminCookie(context)
+    await page.goto(`/admin/events/${archivedEvent.id}`)
+    await expect(page.getByText(archivedEvent.title)).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('button', { name: '編集' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '再開する' })).toHaveCount(0)
+    // 削除ボタンはアーカイブ整理用途のため引き続き表示される。
+    await expect(page.getByRole('button', { name: 'イベント削除' })).toBeVisible()
+    await screenshot(page, 'gap19-archived-no-edit-buttons.png')
+  })
+
+  test('[GAP-20] admin edit/status API rejects archived events even when called directly', async () => {
+    const archivedEvent = await createAdminEvent(baseURL, adminCookieHeader, 'ARCHIVED_PATCH_REJECT')
+    const { error: updateError } = await supabaseAdmin
+      .from('events')
+      .update({ status: 'archived' })
+      .eq('id', archivedEvent.id)
+    expect(updateError).toBeNull()
+
+    const editRes = await appJson(baseURL, '/api/admin/events', {
+      method: 'PATCH',
+      headers: { Cookie: adminCookieHeader },
+      body: JSON.stringify({ id: archivedEvent.id, title: `${archivedEvent.title}_edited` }),
+    })
+    expect(editRes.status).toBe(409)
+
+    const reopenRes = await appJson(baseURL, '/api/admin/events', {
+      method: 'PATCH',
+      headers: { Cookie: adminCookieHeader },
+      body: JSON.stringify({ id: archivedEvent.id, status: 'accepting' }),
+    })
+    expect(reopenRes.status).toBe(409)
+  })
+
   test('[GAP-11] admin delete failure shows error toast', async ({ page, context }) => {
     await injectAdminCookie(context)
     await page.route('**/api/admin/events', async route => {

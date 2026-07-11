@@ -276,6 +276,11 @@ export async function PATCH(req: NextRequest) {
     return jsonError('イベントが見つかりません', 404)
   }
 
+  // アーカイブ済みイベントは編集・状態変更の対象外（画面側もボタンを非表示にしている）。
+  if (current.status === 'archived') {
+    return jsonError('アーカイブ済みのイベントは編集できません', 409)
+  }
+
   if (status !== undefined && !EVENT_STATUSES.includes(status)) {
     return jsonError('status が正しくありません')
   }

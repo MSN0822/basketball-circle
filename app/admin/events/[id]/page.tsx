@@ -202,16 +202,20 @@ export default function AdminEventDetailPage() {
         )}
       </div>
 
-      {/* 操作ボタン */}
+      {/* 操作ボタン（状態変更・編集はarchivedでは無効な操作のため非表示） */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="outline" onClick={handleToggleStatus}>
-          {toggleLabel}
-        </Button>
-        <Link href={`/admin/events/${event.id}/edit`}>
-          <Button size="sm" variant="outline">
-            編集
-          </Button>
-        </Link>
+        {event.status !== 'archived' && (
+          <>
+            <Button size="sm" variant="outline" onClick={handleToggleStatus}>
+              {toggleLabel}
+            </Button>
+            <Link href={`/admin/events/${event.id}/edit`}>
+              <Button size="sm" variant="outline">
+                編集
+              </Button>
+            </Link>
+          </>
+        )}
         <Button
           size="sm"
           variant="ghost"

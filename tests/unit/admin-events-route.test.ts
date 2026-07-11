@@ -229,6 +229,28 @@ describe('PATCH /api/admin/events', () => {
     expect(res.status).toBe(200)
     expect(supabase.spies.update).toHaveBeenCalledWith({ location_url: null })
   })
+
+  it('rejects editing or status changes for archived events', async () => {
+    const { PATCH, supabase } = await loadRoute({
+      currentEvent: { ...baseEvent, status: 'archived' },
+    })
+
+    const res = await PATCH(jsonRequest({ id: EVENT_ID, title: 'Renamed' }, { method: 'PATCH' }))
+
+    expect(res.status).toBe(409)
+    expect(supabase.spies.update).not.toHaveBeenCalled()
+  })
+
+  it('rejects reopening an archived event', async () => {
+    const { PATCH, supabase } = await loadRoute({
+      currentEvent: { ...baseEvent, status: 'archived' },
+    })
+
+    const res = await PATCH(jsonRequest({ id: EVENT_ID, status: 'accepting' }, { method: 'PATCH' }))
+
+    expect(res.status).toBe(409)
+    expect(supabase.spies.update).not.toHaveBeenCalled()
+  })
 })
 
 describe('DELETE /api/admin/events', () => {
