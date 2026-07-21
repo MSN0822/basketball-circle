@@ -28,6 +28,12 @@ const connectSrc = [
 
 const securityHeaders = [
   {
+    // preload は付けない。付けると全サブドメインの恒久 HTTPS 化にコミットすることになり、
+    // 解除に数ヶ月かかる実質不可逆な操作になるため（2026-07-21 判断）。
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains",
+  },
+  {
     key: "X-Frame-Options",
     value: "DENY",
   },
@@ -43,7 +49,7 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://maps.gstatic.com",
+      "script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "font-src 'self' data:",

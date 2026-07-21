@@ -221,6 +221,31 @@ test.describe('admin-flows E2E', () => {
     testEventTitle = newTitle
   })
 
+  // CSP の script-src を変更したときの回帰防止。Google Maps Places は管理者の場所入力でのみ使う。
+  test('[CSP-01] the admin create page loads Google Maps Places without CSP violations', async ({ page, context }) => {
+    const cspViolations: string[] = []
+    page.on('console', msg => {
+      const text = msg.text()
+      if (/Content Security Policy|unsafe-eval|Refused to (load|execute|evaluate)/i.test(text)) {
+        cspViolations.push(text)
+      }
+    })
+
+    await injectAdminCookie(context)
+    await page.goto('/admin/create')
+
+    await page.waitForFunction(
+      () => {
+        const w = window as unknown as { google?: { maps?: { places?: unknown } } }
+        return Boolean(w.google?.maps?.places)
+      },
+      null,
+      { timeout: 20_000 },
+    )
+
+    expect(cspViolations, `CSP violations:\n${cspViolations.join('\n')}`).toHaveLength(0)
+  })
+
   test('[ADM-19-1] editing rejects a capacity below the current active participant count', async ({ page, context }) => {
     const target = await createAdminEvent(baseURL, adminCookieHeader, 'CAPACITY_GUARD', {
       max_participants: 5,

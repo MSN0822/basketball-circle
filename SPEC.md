@@ -882,12 +882,12 @@ join_event（参加申請）・cancel_participant（キャンセル）・registe
 
 - 根拠: `C:\ClaudeCode\90_projects\03_basketball-circle\next.config.ts:29-70`
 
-### SEC-16 — ❓ 要確認
+### SEC-16 — ✅ 確認済み（2026-07-21 まっすん確認・リスク受容）
 
-Content-Security-PolicyのCSP script-srcには'unsafe-inline'と'unsafe-eval'が許可されており、XSS対策としてのCSPのスクリプト実行制限は緩い（インラインスクリプトや動的評価コードの実行を明示的にブロックしていない）。
+Content-Security-Policy の script-src では `'unsafe-inline'` のみを許可する。`'unsafe-eval'` は 2026-07-21 に削除した。インラインスクリプトの実行を許すため CSP による XSS 防御効果は限定的だが、これはリスクを受容したうえでの構成。
 
-- 根拠: `C:\ClaudeCode\90_projects\03_basketball-circle\next.config.ts:46`
-- ❓ 確認ポイント: 'unsafe-inline'/'unsafe-eval'はNext.jsの一部機能（インラインスタイル・特定のクライアント処理）で必要になりがちだが、これによりCSPのXSS防御効果はかなり限定的になる。意図的なトレードオフか、将来nonceベースへ強化する計画があるかオーナー・開発チームで確認が必要。
+- 根拠: `next.config.ts` の securityHeaders（script-src）、回帰防止テスト `tests/e2e/admin-flows.spec.ts` の [CSP-01]
+- 確認結果: `'unsafe-eval'` はローカル本番ビルドで実測した結果、外しても Google Maps Places（管理者の場所入力）が CSP 違反なく読み込まれたため**削除**（2026-07-21）。`'unsafe-inline'` は Next.js がページ初期化にインラインスクリプトを使うため必要で、外すには `proxy.ts` でリクエストごとに nonce を生成・付与する別規模の改修になる。入力の主要経路（参加者名・イベントタイトル等）は React の自動エスケープ配下にあること、管理画面の利用者が運営1名であることを踏まえ、**リスク受容として確定**した。nonce 化は将来の別タスクとして扱う。
 
 ### SEC-17 — ⬜ 未確認
 
@@ -913,6 +913,13 @@ Content-Security-PolicyのCSP script-srcには'unsafe-inline'と'unsafe-eval'が
 Vercel Cronから呼ばれる /api/cron/cleanup（休眠会員削除・期限切れイベントのアーカイブ化）と /api/cron/publish-drafts（予約公開の反映）は、Supabase Authでも管理者クッキーでもなく、環境変数CRON_SECRETと一致するAuthorizationヘッダ（Bearer方式、safeCompareによる定数時間比較）でのみ認可される。CRON_SECRET未設定時は常に500を返し実行されない。
 
 - 根拠: `C:\ClaudeCode\90_projects\03_basketball-circle\app\api\cron\cleanup\route.ts:19-28, app\api\cron\publish-drafts\route.ts:6-15`
+
+### SEC-21 — ⬜ 未確認
+
+全レスポンスに HSTS ヘッダ（`Strict-Transport-Security: max-age=63072000; includeSubDomains`）が付与される。`preload` ディレクティブは意図的に含めない。
+
+- 根拠: `next.config.ts` の securityHeaders、`tests/e2e/production-ui.spec.ts` の HSTS 検証
+- 備考: `preload` を付けると全サブドメインの恒久 HTTPS 化にコミットすることになり、解除に数ヶ月かかる実質不可逆な操作になるため見送った（2026-07-21 判断）。
 
 ## 8. 運用・インフラ
 

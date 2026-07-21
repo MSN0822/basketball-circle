@@ -312,4 +312,15 @@ test.describe('production UI smoke', () => {
     expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin')
     expect(headers['content-security-policy']).toContain("frame-ancestors 'none'")
   })
+
+  test('HSTS is enabled without the preload directive', async ({ request }) => {
+    const res = await request.get(`${baseURL}/`)
+    expect(res.status()).toBe(200)
+
+    const hsts = res.headers()['strict-transport-security']
+    expect(hsts).toContain('max-age=63072000')
+    expect(hsts).toContain('includeSubDomains')
+    // preload は意図的に付けない（解除に数ヶ月かかる実質不可逆な操作のため）
+    expect(hsts).not.toContain('preload')
+  })
 })
