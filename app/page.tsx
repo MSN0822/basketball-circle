@@ -2,7 +2,7 @@ import type { Event, Member, PublicParticipant } from '@/lib/supabase'
 import { getServerSupabase } from '@/lib/supabase-server'
 import { getCookieMember } from '@/lib/server-member'
 import { getMyParticipations } from '@/lib/participation-query'
-import { isVisibleToMembers, withEffectiveEventStatus } from '@/lib/event-visibility'
+import { getVisibleEventsForMembers } from '@/lib/event-queries'
 import { publishDueDraftEvents } from '@/lib/event-publishing'
 import MemberHeader from '@/components/MemberHeader'
 import EventList from '@/components/EventList'
@@ -12,15 +12,7 @@ export const revalidate = 0
 async function getEvents(): Promise<Event[]> {
   const supabase = getServerSupabase()
   await publishDueDraftEvents(supabase)
-  const { data } = await supabase
-    .from('events')
-    .select('*')
-    .order('event_date', { ascending: true })
-  const events = data ?? []
-
-  return events
-    .filter(e => isVisibleToMembers(e))
-    .map(e => withEffectiveEventStatus(e))
+  return getVisibleEventsForMembers(supabase)
 }
 
 // このページはログインユーザごとに個人化したレスポンスを返す（revalidate=0 前提）。
@@ -35,7 +27,10 @@ export default async function HomePage() {
   if (cookieMember) {
     try {
       myParticipations = await getMyParticipations(getServerSupabase(), cookieMember.id)
-    } catch {
+    } catch (error) {
+      // ここはイベント一覧そのものではなく「申請済みバッジ」の解決失敗なので、
+      // 画面全体をエラーにせずクライアント側フォールバックへ委ねる（ログだけ残す）。
+      console.error('[HomePage] 参加状況の取得に失敗しました:', error)
       member = null
     }
   }

@@ -346,6 +346,27 @@ export async function PATCH(req: NextRequest) {
   const capacityError = validateCapacity(nextMax, nextThreshold)
   if (capacityError) return jsonError(capacityError)
 
+  // 定員を減らす方向のときだけ現在の参加者数を確認する（ADM-19）。
+  // 編集画面は変更の有無に関わらず max_participants を毎回送るため、
+  // 「undefined でなければ検証」にすると定員据え置きの保存でも件数取得が走り、
+  // すでに参加者数 > 定員になっているイベントが編集不能になってしまう。
+  let reachedCapacity = false
+  if (max_participants !== undefined && nextMax < current.max_participants) {
+    const { count, error: countError } = await supabase
+      .from('participants')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_id', id)
+      .eq('status', 'active')
+
+    if (countError) return jsonError(countError.message, 500)
+
+    const activeCount = count ?? 0
+    if (nextMax < activeCount) {
+      return jsonError(`現在の参加者数（${activeCount}名）を下回る定員には変更できません`)
+    }
+    reachedCapacity = nextMax === activeCount
+  }
+
   const patch: Record<string, unknown> = {}
   if (status !== undefined) {
     patch.status = status
@@ -353,6 +374,15 @@ export async function PATCH(req: NextRequest) {
     // 手動で accepting / draft に戻したとき → is_manual_close = false にリセット
     if (status === 'closed') patch.is_manual_close = true
     else patch.is_manual_close = false
+  }
+
+  // 定員を参加者数と同数まで下げたら即時受付停止（ADM-19）。
+  // status='accepting' が同時に来ても closed を優先する。
+  // is_manual_close は false のまま（自動締切扱い）。true にすると、キャンセル時の
+  // 自動再開（EVT-08 / EVT-18 / JOIN-10 / ADM-22）が永久に止まる。
+  if (reachedCapacity && status !== 'closed') {
+    patch.status = 'closed'
+    patch.is_manual_close = false
   }
   if (title !== undefined) patch.title = trimmedPatchTitle
   if (event_date !== undefined) patch.event_date = nextStart

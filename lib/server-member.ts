@@ -11,10 +11,16 @@ export async function touchMemberLastAccess(member: Pick<Member, 'id' | 'last_ac
     return
   }
 
-  await getServerSupabase()
+  const { error } = await getServerSupabase()
     .from('members')
     .update({ last_accessed_at: new Date().toISOString() })
     .eq('id', member.id)
+
+  // 失敗しても画面描画は止めない（休眠判定は365日基準なので1回の取りこぼしの影響は小さい）。
+  // ただし黙って失敗し続けると休眠削除の誤判定につながるため、ログには必ず残す。
+  if (error) {
+    console.error('[touchMemberLastAccess] last_accessed_at の更新に失敗しました:', member.id, error.message)
+  }
 }
 
 // Cookie のセッションからログイン中の会員を解決する（Server Component 用）。
@@ -45,11 +51,17 @@ export async function getCookieMember(): Promise<Member | null> {
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) return null
 
-  const { data: member } = await getServerSupabase()
+  const { data: member, error: memberError } = await getServerSupabase()
     .from('members')
     .select('*')
     .eq('auth_user_id', user.id)
     .single<Member>()
+
+  // PGRST116 = 0行（会員未登録）。それ以外は DB 障害なのでログに残す。
+  // ここは throw せず null を返す（未ログイン扱いにしてクライアント側フォールバックへ委ねる設計）。
+  if (memberError && memberError.code !== 'PGRST116') {
+    console.error('[getCookieMember] 会員情報の取得に失敗しました:', memberError.message)
+  }
 
   if (member) {
     await touchMemberLastAccess(member)

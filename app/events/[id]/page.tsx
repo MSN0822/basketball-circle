@@ -2,7 +2,7 @@ import type { Event, Member, PublicParticipant } from '@/lib/supabase'
 import { getServerSupabase } from '@/lib/supabase-server'
 import { getCookieMember } from '@/lib/server-member'
 import { getMyParticipationAndGuests } from '@/lib/participation-query'
-import { isVisibleToMembers, withEffectiveEventStatus } from '@/lib/event-visibility'
+import { getRosterParticipants, getVisibleEventById } from '@/lib/event-queries'
 import { publishDueDraftEvents } from '@/lib/event-publishing'
 import { getSiteOrigin } from '@/lib/site-origin'
 import { Separator } from '@/components/ui/separator'
@@ -18,24 +18,11 @@ export const revalidate = 0
 async function getEvent(id: string): Promise<Event | null> {
   const supabase = getServerSupabase()
   await publishDueDraftEvents(supabase)
-  const { data } = await supabase
-    .from('events')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle<Event>()
-  if (!data || !isVisibleToMembers(data)) return null
-  return withEffectiveEventStatus(data)
+  return getVisibleEventById(supabase, id)
 }
 
 async function getParticipants(eventId: string): Promise<PublicParticipant[]> {
-  const supabase = getServerSupabase()
-  const { data } = await supabase
-    .from('participants_public')
-    .select('id,event_id,name,status,slot_number,created_at,display_code')
-    .eq('event_id', eventId)
-    .neq('status', 'cancelled')
-    .order('slot_number', { ascending: true })
-  return (data as PublicParticipant[] | null) ?? []
+  return getRosterParticipants(getServerSupabase(), eventId)
 }
 
 function formatDateRange(startStr: string, endStr: string | null): string {
@@ -92,7 +79,9 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       const mine = await getMyParticipationAndGuests(getServerSupabase(), id, cookieMember.id)
       myParticipation = mine.participation
       myGuests = mine.guests
-    } catch {
+    } catch (error) {
+      // 参加状況の解決失敗のみ。イベント本体の取得失敗は getEvent 側が throw する。
+      console.error('[EventPage] 参加状況の取得に失敗しました:', error)
       member = null
     }
   }

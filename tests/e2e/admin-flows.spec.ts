@@ -221,6 +221,69 @@ test.describe('admin-flows E2E', () => {
     testEventTitle = newTitle
   })
 
+  test('[ADM-19-1] editing rejects a capacity below the current active participant count', async ({ page, context }) => {
+    const target = await createAdminEvent(baseURL, adminCookieHeader, 'CAPACITY_GUARD', {
+      max_participants: 5,
+      threshold: 3,
+    })
+    const { error } = await supabaseAdmin.from('participants').insert([
+      { event_id: target.id, name: `${runId} Cap A`, user_code: `${runId}-cap-a`, status: 'active', slot_number: 1, member_id: null },
+      { event_id: target.id, name: `${runId} Cap B`, user_code: `${runId}-cap-b`, status: 'active', slot_number: 2, member_id: null },
+    ])
+    expect(error).toBeNull()
+
+    await injectAdminCookie(context)
+    await page.goto(`/admin/events/${target.id}/edit`)
+
+    // 1つ目 = 定員上限、2つ目 = 繰り上げ閾値
+    const numberInputs = page.locator('input[type="number"]')
+    await numberInputs.nth(0).fill('1')
+    await numberInputs.nth(1).fill('1')
+    await page.getByRole('button', { name: '保存する' }).click()
+
+    await expect(page.getByText('現在の参加者数（2名）を下回る定員には変更できません')).toBeVisible({ timeout: 10_000 })
+    await expect(page).toHaveURL(/\/edit$/)
+    await screenshot(page, 'adm19-capacity-below-active.png')
+
+    const { data: unchanged } = await supabaseAdmin
+      .from('events')
+      .select('max_participants,status')
+      .eq('id', target.id)
+      .maybeSingle()
+    expect(unchanged).toMatchObject({ max_participants: 5, status: 'accepting' })
+  })
+
+  test('[ADM-19-2] reducing capacity to exactly the active count closes the event', async ({ page, context }) => {
+    const target = await createAdminEvent(baseURL, adminCookieHeader, 'CAPACITY_EXACT', {
+      max_participants: 5,
+      threshold: 3,
+    })
+    const { error } = await supabaseAdmin.from('participants').insert([
+      { event_id: target.id, name: `${runId} Exact A`, user_code: `${runId}-exact-a`, status: 'active', slot_number: 1, member_id: null },
+      { event_id: target.id, name: `${runId} Exact B`, user_code: `${runId}-exact-b`, status: 'active', slot_number: 2, member_id: null },
+    ])
+    expect(error).toBeNull()
+
+    await injectAdminCookie(context)
+    await page.goto(`/admin/events/${target.id}/edit`)
+
+    const numberInputs = page.locator('input[type="number"]')
+    await numberInputs.nth(0).fill('2')
+    await numberInputs.nth(1).fill('2')
+    await page.getByRole('button', { name: '保存する' }).click()
+
+    await expect(page).toHaveURL(/\/admin$/, { timeout: 10_000 })
+    await screenshot(page, 'adm19-capacity-exact.png')
+
+    // 自動締切なので is_manual_close は false のまま（キャンセル時の自動再開を止めない）
+    const { data: closed } = await supabaseAdmin
+      .from('events')
+      .select('max_participants,status,is_manual_close')
+      .eq('id', target.id)
+      .maybeSingle()
+    expect(closed).toMatchObject({ max_participants: 2, status: 'closed', is_manual_close: false })
+  })
+
   test('[GAP-03] admin can delete an event and it disappears from list', async ({ page, context }) => {
     const target = await createAdminEvent(baseURL, adminCookieHeader, 'DELETE_TARGET', {
       max_participants: 3,

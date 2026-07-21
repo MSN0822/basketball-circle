@@ -34,6 +34,7 @@ async function loadRoute(options: {
   adminOk?: boolean
   currentEvent?: unknown
   selectOrderResult?: { data: unknown; error: null | { message: string } }
+  countResult?: { data?: unknown; error: null | { message: string }; count: number | null }
   insertResult?: { data: unknown; error: null | { message: string } }
   updateResult?: { data: unknown; error: null | { message: string } }
   deleteResult?: { error: null | { message: string } }
@@ -47,6 +48,7 @@ async function loadRoute(options: {
       error: null,
     },
     selectOrderResult: options.selectOrderResult,
+    countResult: options.countResult,
     insertSingleResult: options.insertResult ?? { data: baseEvent, error: null },
     updateSingleResult: options.updateResult ?? { data: baseEvent, error: null },
     deleteEqResult: options.deleteResult ?? { error: null },
@@ -486,6 +488,119 @@ describe('PATCH /api/admin/events', () => {
     expect(supabase.spies.update).toHaveBeenCalledWith({
       status: 'accepting',
       is_manual_close: false,
+    })
+  })
+
+  // ADM-19: 定員を「減らす方向」のときだけ現在の参加者数と突き合わせる。
+  describe('capacity validation against active participants (ADM-19)', () => {
+    const COUNT_ARGS = ['id', { count: 'exact', head: true }]
+
+    it('rejects reducing max_participants below the active participant count', async () => {
+      const { PATCH, supabase } = await loadRoute({
+        currentEvent: { ...baseEvent, max_participants: 35, threshold: 30 },
+        countResult: { data: null, error: null, count: 12 },
+      })
+
+      const res = await PATCH(jsonRequest({ id: EVENT_ID, max_participants: 10, threshold: 10 }, { method: 'PATCH' }))
+
+      expect(res.status).toBe(400)
+      const body = await res.json() as { error: string }
+      expect(body.error).toContain('12名')
+      expect(supabase.spies.update).not.toHaveBeenCalled()
+    })
+
+    it('closes the event when max_participants is reduced to exactly the active count', async () => {
+      const { PATCH, supabase } = await loadRoute({
+        currentEvent: { ...baseEvent, max_participants: 35, threshold: 30 },
+        countResult: { data: null, error: null, count: 12 },
+      })
+
+      const res = await PATCH(jsonRequest({ id: EVENT_ID, max_participants: 12, threshold: 12 }, { method: 'PATCH' }))
+
+      expect(res.status).toBe(200)
+      // is_manual_close は false のまま。true にするとキャンセル時の自動再開が止まる。
+      expect(supabase.spies.update).toHaveBeenCalledWith({
+        max_participants: 12,
+        threshold: 12,
+        status: 'closed',
+        is_manual_close: false,
+      })
+    })
+
+    it('keeps is_manual_close true when the admin also closes it explicitly', async () => {
+      const { PATCH, supabase } = await loadRoute({
+        currentEvent: { ...baseEvent, max_participants: 35, threshold: 30 },
+        countResult: { data: null, error: null, count: 12 },
+      })
+
+      const res = await PATCH(
+        jsonRequest({ id: EVENT_ID, status: 'closed', max_participants: 12, threshold: 12 }, { method: 'PATCH' }),
+      )
+
+      expect(res.status).toBe(200)
+      expect(supabase.spies.update).toHaveBeenCalledWith({
+        status: 'closed',
+        is_manual_close: true,
+        max_participants: 12,
+        threshold: 12,
+      })
+    })
+
+    it('prefers closed over an accepting status sent together with a full capacity', async () => {
+      const { PATCH, supabase } = await loadRoute({
+        currentEvent: { ...baseEvent, status: 'closed', max_participants: 35, threshold: 30 },
+        countResult: { data: null, error: null, count: 12 },
+      })
+
+      const res = await PATCH(
+        jsonRequest({ id: EVENT_ID, status: 'accepting', max_participants: 12, threshold: 12 }, { method: 'PATCH' }),
+      )
+
+      expect(res.status).toBe(200)
+      expect(supabase.spies.update).toHaveBeenCalledWith({
+        status: 'closed',
+        is_manual_close: false,
+        max_participants: 12,
+        threshold: 12,
+      })
+    })
+
+    it('returns 500 when the active participant count cannot be read', async () => {
+      const { PATCH, supabase } = await loadRoute({
+        currentEvent: { ...baseEvent, max_participants: 35, threshold: 30 },
+        countResult: { data: null, error: { message: 'count failed' }, count: null },
+      })
+
+      const res = await PATCH(jsonRequest({ id: EVENT_ID, max_participants: 12, threshold: 12 }, { method: 'PATCH' }))
+
+      expect(res.status).toBe(500)
+      expect(supabase.spies.update).not.toHaveBeenCalled()
+    })
+
+    it('does not count participants when max_participants is increased', async () => {
+      const { PATCH, supabase } = await loadRoute({
+        currentEvent: { ...baseEvent, max_participants: 35, threshold: 30 },
+      })
+
+      const res = await PATCH(jsonRequest({ id: EVENT_ID, max_participants: 40, threshold: 30 }, { method: 'PATCH' }))
+
+      expect(res.status).toBe(200)
+      expect(supabase.spies.select).not.toHaveBeenCalledWith(...COUNT_ARGS)
+    })
+
+    // 編集画面は変更の有無に関わらず max_participants を毎回送るため、
+    // 据え置きの再送信で件数取得が走ると「参加者数 > 定員」のイベントが編集不能になる。
+    it('does not count participants when max_participants is resent unchanged', async () => {
+      const { PATCH, supabase } = await loadRoute({
+        currentEvent: { ...baseEvent, max_participants: 35, threshold: 30 },
+      })
+
+      const res = await PATCH(
+        jsonRequest({ id: EVENT_ID, title: 'Renamed', max_participants: 35, threshold: 30 }, { method: 'PATCH' }),
+      )
+
+      expect(res.status).toBe(200)
+      expect(supabase.spies.select).not.toHaveBeenCalledWith(...COUNT_ARGS)
     })
   })
 })
