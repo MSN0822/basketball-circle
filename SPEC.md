@@ -921,6 +921,21 @@ Vercel Cronから呼ばれる /api/cron/cleanup（休眠会員削除・期限切
 - 根拠: `next.config.ts` の securityHeaders、`tests/e2e/production-ui.spec.ts` の HSTS 検証
 - 備考: `preload` を付けると全サブドメインの恒久 HTTPS 化にコミットすることになり、解除に数ヶ月かかる実質不可逆な操作になるため見送った（2026-07-21 判断）。
 
+### SEC-22 — ⬜ 未確認
+
+管理者ログインだけでなく会員向け API にもレート制限がかかる。上限に達すると 429 と `Retry-After` ヘッダを返す。
+
+| 対象 | キー | 上限 |
+|---|---|---|
+| 参加申請 POST /api/participants | 認証で解決した会員ID | 30回 / 10分 |
+| キャンセル POST /api/cancel（会員） | 認証で解決した会員ID | 30回 / 10分 |
+| キャンセル POST /api/cancel（臨時コード） | クライアントIP | 10回 / 10分 |
+| 会員登録 POST /api/members | クライアントIP | 60回 / 60分 |
+| 名前変更 PATCH /api/members | 認証ユーザーID | 20回 / 60分 |
+
+- 根拠: `lib/rate-limit.ts`, `lib/api-rate-limits.ts`, `app/api/participants/route.ts`, `app/api/cancel/route.ts`, `app/api/members/route.ts`
+- 備考: カウンタは管理者ログインと同じ `admin_login_attempts` テーブルを流用し、DB 側の原子的な加算には新設の `record_rate_limit_hit` RPC を使う（既存の `record_admin_login_failure` は管理者ログイン用として残置）。設計上の必須制約が2つある — ①会員ID・認証ユーザーIDをキーにする加算は**必ず認証成功後に行う**（認証前に加算すると第三者が他人のIDを投げるだけで正規会員をロックできる）②管理者ログインの ADM-03 と違い、**サービス全体で共有する global キーは使わない**（利用者1人の連打でサービス全体を止められるため）。
+
 ## 8. 運用・インフラ
 
 ### OPS-01 — ⬜ 未確認

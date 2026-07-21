@@ -4,6 +4,8 @@ import type { Participant } from '@/lib/supabase'
 import { generateUserCode } from '@/lib/user-code'
 import { getAuthenticatedMember } from '@/lib/api-auth'
 import { resolveServerSupabase } from '@/lib/route-supabase'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { JOIN_LIMIT } from '@/lib/api-rate-limits'
 import { isValidUuid } from '@/lib/validators'
 import { effectiveEventStatus, isVisibleToMembers } from '@/lib/event-visibility'
 import { publishDueDraftEvents } from '@/lib/event-publishing'
@@ -143,6 +145,12 @@ export async function POST(req: NextRequest) {
   }
 
   const canonicalMemberId = auth.member.id
+
+  // 認証で解決された会員IDをキーにする。認証前に数えると、第三者が他人の会員IDを
+  // 投げるだけで正規会員をロックできてしまうため、必ずこの位置で呼ぶこと。
+  const rateLimited = await enforceRateLimit(`join:member:${canonicalMemberId}`, JOIN_LIMIT)
+  if (rateLimited) return rateLimited
+
   const trimmedName = (guest ? name : auth.member.name)?.trim()
 
   if (!event_id || !trimmedName) {

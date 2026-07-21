@@ -1,165 +1,49 @@
-import { getServerSupabase } from '@/lib/supabase-server'
+import * as rateLimit from '@/lib/rate-limit'
 
-export type AttemptState = {
-  count: number
-  resetAt: number
-  lockedUntil: number
-}
+export type AttemptState = rateLimit.AttemptState
 
 export const ATTEMPT_WINDOW_MS = 15 * 60 * 1000
 export const LOCK_MS = 15 * 60 * 1000
 export const MAX_ATTEMPTS = 5
 
-type AttemptRow = {
-  key: string
-  count: number
-  reset_at: string
-  locked_until: string | null
+// 管理者ログインは既存の record_admin_login_failure RPC を使い続ける。
+// 汎用版（record_rate_limit_hit）と挙動は同じだが引数名が異なるため、互換のため残している。
+const ADMIN_POLICY: rateLimit.RateLimitPolicy = {
+  windowMs: ATTEMPT_WINDOW_MS,
+  lockMs: LOCK_MS,
+  maxAttempts: MAX_ATTEMPTS,
+  rpcName: 'record_admin_login_failure',
+  buildRpcArgs: (key, policy) => ({
+    p_key: key,
+    p_attempt_window_ms: policy.windowMs,
+    p_lock_ms: policy.lockMs,
+    p_max_attempts: policy.maxAttempts,
+  }),
 }
 
-type AttemptStore = {
-  get(key: string): Promise<AttemptState | null>
-  set(key: string, state: AttemptState): Promise<void>
-  incrementFailure?(key: string): Promise<AttemptState>
-  delete(key: string): Promise<void>
-  clear(): Promise<void>
-}
-
-const TABLE = 'admin_login_attempts'
-const testAttempts = new Map<string, AttemptState>()
-
-function toIso(ms: number): string {
-  return new Date(ms).toISOString()
-}
-
-function fromIso(value: string | null): number {
-  return value ? Date.parse(value) : 0
-}
-
-function rowToState(row: AttemptRow): AttemptState {
-  return {
-    count: row.count,
-    resetAt: fromIso(row.reset_at),
-    lockedUntil: fromIso(row.locked_until),
-  }
-}
-
-function createSupabaseStore(): AttemptStore {
-  return {
-    async get(key) {
-      const { data, error } = await getServerSupabase()
-        .from(TABLE)
-        .select('key,count,reset_at,locked_until')
-        .eq('key', key)
-        .maybeSingle<AttemptRow>()
-
-      if (error) throw error
-      return data ? rowToState(data) : null
-    },
-    async set(key, state) {
-      const { error } = await getServerSupabase()
-        .from(TABLE)
-        .upsert({
-          key,
-          count: state.count,
-          reset_at: toIso(state.resetAt),
-          locked_until: state.lockedUntil > 0 ? toIso(state.lockedUntil) : null,
-        })
-
-      if (error) throw error
-    },
-    async incrementFailure(key) {
-      const { data, error } = await getServerSupabase()
-        .rpc('record_admin_login_failure', {
-          p_key: key,
-          p_attempt_window_ms: ATTEMPT_WINDOW_MS,
-          p_lock_ms: LOCK_MS,
-          p_max_attempts: MAX_ATTEMPTS,
-        })
-
-      if (error) throw error
-      return rowToState(data as AttemptRow)
-    },
-    async delete(key) {
-      const { error } = await getServerSupabase()
-        .from(TABLE)
-        .delete()
-        .eq('key', key)
-
-      if (error) throw error
-    },
-    async clear() {
-      const { error } = await getServerSupabase()
-        .from(TABLE)
-        .delete()
-        .neq('key', '')
-
-      if (error) throw error
-    },
-  }
-}
-
-function createMemoryStore(): AttemptStore {
-  return {
-    async get(key) {
-      return testAttempts.get(key) ?? null
-    },
-    async set(key, state) {
-      testAttempts.set(key, state)
-    },
-    async delete(key) {
-      testAttempts.delete(key)
-    },
-    async clear() {
-      testAttempts.clear()
-    },
-  }
-}
-
-const store = process.env.NODE_ENV === 'test' ? createMemoryStore() : createSupabaseStore()
+// 以下は lib/rate-limit.ts への薄いラッパ。管理者ログイン側の公開APIと挙動は変えていない
+// （ADM-02 / SEC-12 を壊さないため、呼び出し側とテストは無改修のまま動く）。
 
 export function normalizeAttemptState(current: AttemptState | null, now = Date.now()): AttemptState {
-  if (!current) {
-    return { count: 0, resetAt: now + ATTEMPT_WINDOW_MS, lockedUntil: 0 }
-  }
-  // Keep an active lock until lockedUntil even if the attempt window has elapsed.
-  if (current.lockedUntil > now) {
-    return current
-  }
-  if (current.resetAt <= now) {
-    return { count: 0, resetAt: now + ATTEMPT_WINDOW_MS, lockedUntil: 0 }
-  }
-  return current
+  return rateLimit.normalizeAttemptState(current, ADMIN_POLICY, now)
 }
 
-export async function getAttemptState(key: string, now = Date.now()): Promise<AttemptState> {
-  return normalizeAttemptState(await store.get(key), now)
+export function getAttemptState(key: string, now = Date.now()): Promise<AttemptState> {
+  return rateLimit.getAttemptState(key, ADMIN_POLICY, now)
 }
 
-export async function isLocked(key: string, now = Date.now()): Promise<boolean> {
-  const current = await getAttemptState(key, now)
-  return current.lockedUntil > now
+export function isLocked(key: string, now = Date.now()): Promise<boolean> {
+  return rateLimit.isLocked(key, ADMIN_POLICY, now)
 }
 
-export async function recordFailure(key: string, now = Date.now()) {
-  if (store.incrementFailure && process.env.NODE_ENV !== 'test') {
-    await store.incrementFailure(key)
-    return
-  }
-
-  const current = await getAttemptState(key, now)
-  const nextCount = current.count + 1
-  await store.set(key, {
-    count: nextCount,
-    resetAt: current.resetAt,
-    lockedUntil: nextCount >= MAX_ATTEMPTS ? now + LOCK_MS : current.lockedUntil,
-  })
+export function recordFailure(key: string, now = Date.now()): Promise<void> {
+  return rateLimit.recordAttempt(key, ADMIN_POLICY, now)
 }
 
-export async function clearFailure(key: string) {
-  await store.delete(key)
+export function clearFailure(key: string): Promise<void> {
+  return rateLimit.clearAttempts(key)
 }
 
-export async function __resetAttempts() {
-  await store.clear()
+export function __resetAttempts(): Promise<void> {
+  return rateLimit.__resetAttempts()
 }

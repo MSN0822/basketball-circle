@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { Participant } from '@/lib/supabase'
 import { checkAdmin, getAuthenticatedMember, getBearerToken, safeCompare } from '@/lib/api-auth'
 import { resolveServerSupabase } from '@/lib/route-supabase'
+import { clientIdentifier, enforceRateLimit } from '@/lib/rate-limit'
+import { CANCEL_LEGACY_LIMIT, CANCEL_MEMBER_LIMIT } from '@/lib/api-rate-limits'
 import { isValidUuid } from '@/lib/validators'
 import { isVisibleToMembers } from '@/lib/event-visibility'
 import { publishDueDraftEvents } from '@/lib/event-publishing'
@@ -59,6 +61,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: eventError.message }, { status: 500 })
   }
 
+  // 臨時コード（5桁）によるキャンセルは総当たりが可能なため、認可の成否に関わらず
+  // IP キーで数える。Vercel は x-real-ip を実IPで上書きするので偽装は効かないが、
+  // 同一回線の複数利用者が巻き添えになる点を踏まえて上限は控えめにしている。
+  if (!admin && !getBearerToken(req)) {
+    const legacyLimited = await enforceRateLimit(`cancel:ip:${clientIdentifier(req)}`, CANCEL_LEGACY_LIMIT)
+    if (legacyLimited) return legacyLimited
+  }
+
   if (admin) {
     if (!checkAdmin(req)) {
       return NextResponse.json({ error: '管理者認証に失敗しました' }, { status: 403 })
@@ -81,6 +91,10 @@ export async function POST(req: NextRequest) {
     if (participant.member_id !== auth.member.id && !ownsGuest) {
       return NextResponse.json({ error: '本人確認に失敗しました' }, { status: 403 })
     }
+
+    // 認証で解決された会員IDをキーにする（body の member_id は使わない）。
+    const memberLimited = await enforceRateLimit(`cancel:member:${auth.member.id}`, CANCEL_MEMBER_LIMIT)
+    if (memberLimited) return memberLimited
   } else if (!participant.member_id && !participant.user_code.startsWith('guest:') && safeCompare(user_code, participant.user_code)) {
     if (!event || !isVisibleToMembers(event)) {
       return NextResponse.json({ error: '参加者が見つかりません' }, { status: 404 })

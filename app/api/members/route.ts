@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { Member } from '@/lib/supabase'
 import { getBearerUser } from '@/lib/api-auth'
 import { resolveServerSupabase } from '@/lib/route-supabase'
+import { clientIdentifier, enforceRateLimit } from '@/lib/rate-limit'
+import { REGISTER_LIMIT, RENAME_LIMIT } from '@/lib/api-rate-limits'
 import { isValidUuid } from '@/lib/validators'
 
 const MAX_NAME_LENGTH = 100
@@ -46,6 +48,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '本人確認に失敗しました' }, { status: 403 })
   }
 
+  // 会員登録は会員IDが未確定なので IP キーで数える（認証成功後にのみ加算）。
+  const rateLimited = await enforceRateLimit(`register:ip:${clientIdentifier(req)}`, REGISTER_LIMIT)
+  if (rateLimited) return rateLimited
+
   const { data, error } = await supabase.rpc('register_member', {
     p_name: trimmedName,
     p_auth_user_id: auth_user_id,
@@ -81,6 +87,11 @@ export async function PATCH(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'ログインが必要です' }, { status: 401 })
   }
+
+  // キーは認証済みユーザーのIDにする。body の member_id を使うと、
+  // 他人のIDを投げるだけでその会員をロックできてしまう。
+  const rateLimited = await enforceRateLimit(`rename:auth:${user.id}`, RENAME_LIMIT)
+  if (rateLimited) return rateLimited
 
   const body = await req.json().catch(() => null) as { member_id?: unknown; name?: unknown } | null
   if (!body) {
