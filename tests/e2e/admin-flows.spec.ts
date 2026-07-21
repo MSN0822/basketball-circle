@@ -2,7 +2,7 @@ import { test, expect, type BrowserContext, type Page } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { cleanupQaEvents, requireProductionE2eAllowed, STALE_QA_EVENT_PREFIXES, staleQaCutoff } from './qa-cleanup'
+import { cleanupQaEvents, e2eEnvFileName, requireEnvMatchesTarget, requireProductionE2eAllowed, STALE_QA_EVENT_PREFIXES, staleQaCutoff } from './qa-cleanup'
 
 const ADMIN_SESSION_COOKIE = 'basketball_admin_session'
 const runId = `QA_E2E_ADMIN_${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
@@ -28,7 +28,7 @@ type SignupRequestBody = {
 }
 
 async function readLocalEnv(): Promise<LocalEnv> {
-  const raw = await fs.readFile(path.join(process.cwd(), '.env.local'), 'utf8')
+  const raw = await fs.readFile(path.join(process.cwd(), e2eEnvFileName()), 'utf8')
   return Object.fromEntries(
     raw
       .split(/\r?\n/)
@@ -130,6 +130,8 @@ test.describe('admin-flows E2E', () => {
     adminPassword = env.ADMIN_PASSWORD
     baseURL = process.env.QA_BASE_URL ?? baseURL
     requireProductionE2eAllowed(baseURL)
+    // アプリの向き先と DB の向き先の食い違いを検出する（従来の QA 運用は明示的に許可）。
+    requireEnvMatchesTarget(baseURL, env.NEXT_PUBLIC_SUPABASE_URL, { allowProductionDb: true })
     supabaseAdmin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
