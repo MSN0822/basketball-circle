@@ -1,4 +1,4 @@
-import { Event, Member, PublicParticipant } from '@/lib/supabase'
+import type { Event, Member, PublicParticipant } from '@/lib/supabase'
 import { getServerSupabase } from '@/lib/supabase-server'
 import { getCookieMember } from '@/lib/server-member'
 import { getMyParticipations } from '@/lib/participation-query'

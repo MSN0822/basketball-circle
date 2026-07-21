@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Event, EventStatus } from '@/lib/supabase'
+import type { Event, EventStatus } from '@/lib/supabase'
 import { checkAdmin } from '@/lib/api-auth'
-import { getServerSupabase } from '@/lib/supabase-server'
+import { resolveServerSupabase } from '@/lib/route-supabase'
 import { isValidUuid } from '@/lib/validators'
 import { publishDueDraftEvents } from '@/lib/event-publishing'
 
-const supabase = getServerSupabase()
 const EVENT_STATUSES: EventStatus[] = ['accepting', 'closed', 'draft', 'archived']
 const MAX_TITLE_LENGTH = 200
 const MAX_LOCATION_LENGTH = 200
@@ -78,6 +77,10 @@ export async function POST(req: NextRequest) {
   if (!checkAdmin(req)) {
     return jsonError('認証エラー', 403)
   }
+
+  const resolved = resolveServerSupabase()
+  if (resolved.response) return resolved.response
+  const supabase = resolved.supabase
 
   const body = await req.json()
   const {
@@ -161,6 +164,10 @@ export async function GET(req: NextRequest) {
     return jsonError('認証エラー', 403)
   }
 
+  const resolved = resolveServerSupabase()
+  if (resolved.response) return resolved.response
+  const supabase = resolved.supabase
+
   try {
     await publishDueDraftEvents(supabase)
   } catch (error) {
@@ -229,6 +236,10 @@ export async function DELETE(req: NextRequest) {
     return jsonError('認証エラー', 403)
   }
 
+  const resolved = resolveServerSupabase()
+  if (resolved.response) return resolved.response
+  const supabase = resolved.supabase
+
   const { id } = await req.json()
   if (!id) return jsonError('id は必須です')
   if (!isValidUuid(id)) {
@@ -253,6 +264,10 @@ export async function PATCH(req: NextRequest) {
   if (!checkAdmin(req)) {
     return jsonError('認証エラー', 403)
   }
+
+  const resolved = resolveServerSupabase()
+  if (resolved.response) return resolved.response
+  const supabase = resolved.supabase
 
   const body = await req.json()
   const { id, status, title, event_date, event_end_date, location, location_url, publishes_at, max_participants, threshold } = body

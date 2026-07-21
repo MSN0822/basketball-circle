@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Participant } from '@/lib/supabase'
+import type { Participant } from '@/lib/supabase'
 import { checkAdmin, getAuthenticatedMember, getBearerToken, safeCompare } from '@/lib/api-auth'
-import { getServerSupabase } from '@/lib/supabase-server'
+import { resolveServerSupabase } from '@/lib/route-supabase'
 import { isValidUuid } from '@/lib/validators'
 import { isVisibleToMembers } from '@/lib/event-visibility'
 import { publishDueDraftEvents } from '@/lib/event-publishing'
-
-const supabase = getServerSupabase()
 
 type EventAccess = {
   status: 'accepting' | 'closed' | 'draft' | 'archived'
@@ -14,6 +12,10 @@ type EventAccess = {
 }
 
 export async function POST(req: NextRequest) {
+  const resolved = resolveServerSupabase()
+  if (resolved.response) return resolved.response
+  const supabase = resolved.supabase
+
   const { participant_id, member_id, user_code, admin } = await req.json()
 
   if (!participant_id) {

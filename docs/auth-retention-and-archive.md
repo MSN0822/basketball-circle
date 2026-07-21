@@ -10,7 +10,7 @@
 ## Member Access Retention
 
 - `members.last_accessed_at` is refreshed on authenticated page access.
-- The refresh is throttled to at most once per member per day.
+- The page-access refresh is throttled to at most once per 24 hours per member (`LAST_ACCESS_TOUCH_INTERVAL_MS` in `lib/server-member.ts`). Login always refreshes it via the `register_member` RPC.
 - `/api/cron/cleanup` removes members with `last_accessed_at` older than 365 days.
 - Before removing a dormant member, cleanup clears `participants.member_id` so historical participant rows remain available in admin archives.
 - Cleanup then deletes the `members` row and attempts to delete the Supabase Auth user.

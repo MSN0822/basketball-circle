@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Member } from '@/lib/supabase'
+import type { Member } from '@/lib/supabase'
 import { getBearerUser } from '@/lib/api-auth'
-import { getServerSupabase } from '@/lib/supabase-server'
+import { resolveServerSupabase } from '@/lib/route-supabase'
 import { isValidUuid } from '@/lib/validators'
 
-const supabase = getServerSupabase()
 const MAX_NAME_LENGTH = 100
 
 type RegisterMemberResult = {
@@ -20,6 +19,10 @@ type UpdateMemberNameResult = {
 }
 
 export async function POST(req: NextRequest) {
+  const resolved = resolveServerSupabase()
+  if (resolved.response) return resolved.response
+  const supabase = resolved.supabase
+
   const body = await req.json().catch(() => null) as { name?: unknown; auth_user_id?: unknown } | null
   if (!body) {
     return NextResponse.json({ error: 'name と auth_user_id は必須です' }, { status: 400 })
@@ -70,6 +73,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const resolved = resolveServerSupabase()
+  if (resolved.response) return resolved.response
+  const supabase = resolved.supabase
+
   const user = await getBearerUser(req)
   if (!user) {
     return NextResponse.json({ error: 'ログインが必要です' }, { status: 401 })

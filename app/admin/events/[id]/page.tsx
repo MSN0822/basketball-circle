@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Event, Participant } from '@/lib/supabase'
+import type { Event, Participant } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'

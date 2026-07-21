@@ -47,7 +47,7 @@ async function loadRoute(options: {
   )
 
   vi.doMock('@/lib/supabase-server', () => ({ getServerSupabase: () => supabase.client }))
-  vi.doMock('@/lib/supabase', () => ({ generateUserCode: () => '55555' }))
+  vi.doMock('@/lib/user-code', () => ({ generateUserCode: () => '55555' }))
   vi.doMock('@/lib/api-auth', () => ({ getAuthenticatedMember }))
 
   const route = await import('@/app/api/participants/route')

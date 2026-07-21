@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
-import { Member } from '@/lib/supabase'
+import type { Member } from '@/lib/supabase'
 import { getServerSupabase } from '@/lib/supabase-server'
 
 const LAST_ACCESS_TOUCH_INTERVAL_MS = 24 * 60 * 60 * 1000

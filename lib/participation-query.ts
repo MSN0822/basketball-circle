@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { Participant, PublicParticipant } from '@/lib/supabase'
+import type { Participant, PublicParticipant } from '@/lib/supabase'
 import { isVisibleToMembers } from '@/lib/event-visibility'
 
 type VisibleEventFields = {

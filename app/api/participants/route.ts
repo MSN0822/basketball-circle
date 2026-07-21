@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateUserCode, Participant } from '@/lib/supabase'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Participant } from '@/lib/supabase'
+import { generateUserCode } from '@/lib/user-code'
 import { getAuthenticatedMember } from '@/lib/api-auth'
-import { getServerSupabase } from '@/lib/supabase-server'
+import { resolveServerSupabase } from '@/lib/route-supabase'
 import { isValidUuid } from '@/lib/validators'
 import { effectiveEventStatus, isVisibleToMembers } from '@/lib/event-visibility'
 import { publishDueDraftEvents } from '@/lib/event-publishing'
 import { getMyParticipationAndGuests, getMyParticipations, toPublicParticipant } from '@/lib/participation-query'
 
-const supabase = getServerSupabase()
 const MAX_PARTICIPANT_NAME_LENGTH = 100
 
 type JoinEventResult = {
@@ -23,7 +24,7 @@ type VisibleEvent = {
   publishes_at: string | null
 }
 
-async function getVisibleEvent(eventId: string): Promise<VisibleEvent | null> {
+async function getVisibleEvent(supabase: SupabaseClient, eventId: string): Promise<VisibleEvent | null> {
   await publishDueDraftEvents(supabase)
 
   const { data, error } = await supabase
@@ -40,6 +41,10 @@ async function getVisibleEvent(eventId: string): Promise<VisibleEvent | null> {
 }
 
 export async function GET(req: NextRequest) {
+  const resolved = resolveServerSupabase()
+  if (resolved.response) return resolved.response
+  const supabase = resolved.supabase
+
   const eventId = req.nextUrl.searchParams.get('event_id')
   const requestedMemberId = req.nextUrl.searchParams.get('member_id')
   if (eventId && !isValidUuid(eventId)) {
@@ -53,7 +58,7 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-      const visibleEvent = await getVisibleEvent(eventId)
+      const visibleEvent = await getVisibleEvent(supabase, eventId)
       if (!visibleEvent) {
         return NextResponse.json({ error: 'イベントが見つかりません' }, { status: 404 })
       }
@@ -104,7 +109,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const visibleEvent = await getVisibleEvent(eventId)
+    const visibleEvent = await getVisibleEvent(supabase, eventId)
     if (!visibleEvent) {
       return NextResponse.json({ error: 'イベントが見つかりません' }, { status: 404 })
     }
@@ -127,6 +132,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const resolved = resolveServerSupabase()
+  if (resolved.response) return resolved.response
+  const supabase = resolved.supabase
+
   const { event_id, name, member_id, guest } = await req.json()
   const auth = await getAuthenticatedMember(req, member_id ?? null)
   if (!auth.member) {
@@ -150,7 +159,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const visibleEvent = await getVisibleEvent(event_id)
+    const visibleEvent = await getVisibleEvent(supabase, event_id)
     if (!visibleEvent) {
       return NextResponse.json({ error: 'イベントが見つかりません' }, { status: 404 })
     }

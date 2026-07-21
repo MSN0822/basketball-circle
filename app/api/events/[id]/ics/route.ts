@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Event } from '@/lib/supabase'
-import { getServerSupabase } from '@/lib/supabase-server'
+import type { Event } from '@/lib/supabase'
+import { resolveServerSupabase } from '@/lib/route-supabase'
 import { isValidUuid } from '@/lib/validators'
 import { isVisibleToMembers } from '@/lib/event-visibility'
 import { buildEventIcs } from '@/lib/ics'
-
-const supabase = getServerSupabase()
 
 type IcsEvent = Pick<
   Event,
@@ -13,6 +11,10 @@ type IcsEvent = Pick<
 >
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const resolved = resolveServerSupabase()
+  if (resolved.response) return resolved.response
+  const supabase = resolved.supabase
+
   const { id } = await params
 
   if (!isValidUuid(id)) {
